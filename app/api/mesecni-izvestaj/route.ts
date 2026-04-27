@@ -155,7 +155,7 @@ async function buildMonthlyPdf({
 
   const buffer = await pdf(pdfElement).toBuffer();
 
-  return new NextResponse(buffer, {
+  return new NextResponse(buffer as any, {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `inline; filename="mesecni-${month}.pdf"`,
