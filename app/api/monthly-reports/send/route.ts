@@ -87,7 +87,7 @@ export async function POST(req: Request) {
 
     // ✅ Ako je previewOnly, samo vrati PDF browseru
     if (previewOnly) {
-      return new Response(pdfBuffer, {
+      return new Response(pdfBuffer as unknown as BodyInit, {
         headers: {
           "Content-Type": "application/pdf",
           "Content-Disposition": `inline; filename="izvestaj-${month}.pdf"`,
