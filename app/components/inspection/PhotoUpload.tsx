@@ -1,23 +1,24 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
 
 const BUCKET = 'inspection-images'
 
 export default function PhotoUpload({
   inspectionId,
+  onUploaded,
 }: {
   inspectionId: string
+  onUploaded?: () => void
 }) {
   const supabase = createClient()
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const [uploading, setUploading] = useState(false)
   const [message, setMessage] = useState('')
 
-  const handleUpload = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -42,7 +43,6 @@ export default function PhotoUpload({
 
       if (uploadError) {
         setMessage(`Greška pri uploadu slike: ${uploadError.message}`)
-        setUploading(false)
         return
       }
 
@@ -60,14 +60,17 @@ export default function PhotoUpload({
 
       if (dbError) {
         setMessage(`Greška pri upisu u bazu: ${dbError.message}`)
-        setUploading(false)
         return
       }
 
-      setMessage('Slika uspešno dodata.')
+      setMessage('✅ Slika uspešno dodata.')
       e.target.value = ''
+
+      if (onUploaded) {
+        onUploaded()
+      }
     } catch (error: any) {
-      setMessage(error?.message || 'Neočekivana greška pri uploadu slike.')
+      setMessage(error?.message || 'Neočekivana greška.')
     } finally {
       setUploading(false)
     }
@@ -79,21 +82,40 @@ export default function PhotoUpload({
         marginTop: 24,
         padding: 16,
         border: '1px solid #ddd',
-        borderRadius: 8,
+        borderRadius: 10,
         backgroundColor: '#fafafa',
       }}
     >
-      <h3 style={{ marginTop: 0 }}>Dodaj fotografiju</h3>
+      <h3 style={{ marginTop: 0 }}>Fotografije</h3>
 
       <input
+        ref={fileInputRef}
         type="file"
         accept="image/*"
         onChange={handleUpload}
         disabled={uploading}
+        style={{ display: 'none' }}
       />
 
-      {uploading && <p style={{ marginTop: 10 }}>Upload u toku...</p>}
-      {message && <p style={{ marginTop: 10 }}>{message}</p>}
+      <button
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={uploading}
+        style={{
+          padding: '12px 18px',
+          backgroundColor: '#2563eb',
+          color: 'white',
+          border: 'none',
+          borderRadius: 10,
+          fontSize: 16,
+          fontWeight: 'bold',
+          cursor: uploading ? 'not-allowed' : 'pointer',
+        }}
+      >
+        {uploading ? 'Upload u toku...' : '📷 Dodaj fotografiju'}
+      </button>
+
+      {message ? <p style={{ marginTop: 12 }}>{message}</p> : null}
     </div>
   )
 }

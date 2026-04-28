@@ -457,7 +457,7 @@ export default function InspectionDetailPage() {
           </PDFDownloadLink>
         </div>
 
-        <PhotoUpload inspectionId={inspectionId} />
+        <PhotoUpload inspectionId={inspectionId} onUploaded={loadPhotos} />
 
         <div style={{ marginTop: 20, padding: 16, border: '1px solid #ddd', borderRadius: 10 }}>
           <h3>Fotografije</h3>
