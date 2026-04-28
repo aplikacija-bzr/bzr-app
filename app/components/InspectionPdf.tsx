@@ -6,7 +6,6 @@ import {
   View,
   StyleSheet,
   Font,
-  Image,
 } from "@react-pdf/renderer";
 
 type InspectionPdfItem = {
@@ -28,9 +27,8 @@ type Props = {
   title?: string;
 };
 
-const appUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://bzr-app.vercel.app";
-
-const logoUrl = `${appUrl}/logo-transparentan.png`;
+const appUrl =
+  process.env.NEXT_PUBLIC_SITE_URL || "https://bzr-app.vercel.app";
 
 Font.register({
   family: "DejaVuSans",
@@ -44,23 +42,32 @@ const styles = StyleSheet.create({
     fontFamily: "DejaVuSans",
   },
   memorandum: {
-    borderBottomWidth: 2,
-    borderBottomColor: "#000",
-    paddingBottom: 10,
-    marginBottom: 14,
-    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#000",
+    padding: 12,
+    marginBottom: 16,
   },
-  logo: {
-    width: 500,
-    height: 90,
-    objectFit: "contain",
+  firmName: {
+    fontSize: 20,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  firmSub: {
+    fontSize: 11,
+    textAlign: "center",
+    marginBottom: 2,
+  },
+  line: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#000",
+    marginTop: 8,
     marginBottom: 8,
   },
   title: {
     fontSize: 15,
     fontWeight: "bold",
     textAlign: "center",
-    marginTop: 6,
   },
   meta: {
     marginBottom: 12,
@@ -125,7 +132,19 @@ export default function InspectionPdf({
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.memorandum}>
-          <Image src={logoUrl} style={styles.logo} />
+          <Text style={styles.firmName}>INPRO BZR</Text>
+          <Text style={styles.firmSub}>
+            Bezbednost i zdravlje na radu
+          </Text>
+          <Text style={styles.firmSub}>
+            d.o.o. Bajina Bašta
+          </Text>
+          <Text style={styles.firmSub}>
+            office@inpro.rs
+          </Text>
+
+          <View style={styles.line} />
+
           <Text style={styles.title}>{title}</Text>
         </View>
 
@@ -146,7 +165,9 @@ export default function InspectionPdf({
 
             <Text>
               Odgovor:{" "}
-              <Text style={item.answer === "NE" ? styles.answerNo : styles.answerYes}>
+              <Text
+                style={item.answer === "NE" ? styles.answerNo : styles.answerYes}
+              >
                 {item.answer || "-"}
               </Text>
             </Text>
