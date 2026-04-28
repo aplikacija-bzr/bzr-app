@@ -6,6 +6,7 @@ import {
   View,
   StyleSheet,
   Font,
+  Image,
 } from "@react-pdf/renderer";
 
 type InspectionPdfItem = {
@@ -27,8 +28,9 @@ type Props = {
   title?: string;
 };
 
-const appUrl =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://bzr-app.vercel.app";
+const appUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://bzr-app.vercel.app";
+
+const logoUrl = `${appUrl}/logo-transparentan.png`;
 
 Font.register({
   family: "DejaVuSans",
@@ -42,30 +44,23 @@ const styles = StyleSheet.create({
     fontFamily: "DejaVuSans",
   },
   memorandum: {
-    borderWidth: 2,
-    borderColor: "#000",
-    padding: 10,
+    borderBottomWidth: 2,
+    borderBottomColor: "#000",
+    paddingBottom: 10,
     marginBottom: 14,
+    alignItems: "center",
   },
-  memorandumTop: {
-    fontSize: 18,
-    fontWeight: "bold",
-    textAlign: "center",
-    marginBottom: 4,
-  },
-  memorandumSub: {
-    fontSize: 10,
-    textAlign: "center",
-    marginBottom: 2,
+  logo: {
+    width: 500,
+    height: 90,
+    objectFit: "contain",
+    marginBottom: 8,
   },
   title: {
-    marginTop: 10,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: "#000",
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "bold",
     textAlign: "center",
+    marginTop: 6,
   },
   meta: {
     marginBottom: 12,
@@ -130,13 +125,7 @@ export default function InspectionPdf({
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.memorandum}>
-          <Text style={styles.memorandumTop}>INPRO BZR</Text>
-          <Text style={styles.memorandumSub}>
-            Bezbednost i zdravlje na radu
-          </Text>
-          <Text style={styles.memorandumSub}>
-            Užice | office@inpro.rs
-          </Text>
+          <Image src={logoUrl} style={styles.logo} />
           <Text style={styles.title}>{title}</Text>
         </View>
 
@@ -157,9 +146,7 @@ export default function InspectionPdf({
 
             <Text>
               Odgovor:{" "}
-              <Text
-                style={item.answer === "NE" ? styles.answerNo : styles.answerYes}
-              >
+              <Text style={item.answer === "NE" ? styles.answerNo : styles.answerYes}>
                 {item.answer || "-"}
               </Text>
             </Text>
