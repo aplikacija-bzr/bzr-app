@@ -115,7 +115,14 @@ export async function POST(req: Request) {
       photos: photoUrls,
     })
 
-    const pdfBuffer = await pdf(pdfElement).toBuffer()
+    const pdfStream = await pdf(pdfElement).toBuffer()
+    const chunks: Uint8Array[] = []
+
+    for await (const chunk of pdfStream as any) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+    }
+
+    const pdfBuffer = Buffer.concat(chunks)
 
     const subject = log.subject || `BZR kontrolna lista - ${inspection?.client_name || ''}`
 
@@ -132,6 +139,7 @@ export async function POST(req: Request) {
         {
           filename: 'dnevna_kontrola.pdf',
           content: pdfBuffer,
+          contentType: 'application/pdf',
         },
       ],
     })
