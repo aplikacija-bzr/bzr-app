@@ -48,7 +48,7 @@ export default async function DashboardPage() {
 
   return (
     <div style={{ padding: 30, maxWidth: 1000 }}>
-      <h1>Dashboard</h1>
+      <h1>INPRO-BZR</h1>
 
       <div style={cardsWrapper}>
         <div style={cardStyle}>
@@ -76,7 +76,7 @@ export default async function DashboardPage() {
 
       <div style={buttonsWrapper}>
         <Link href="/dashboard/poslodavci" style={buttonStyle}>
-          Poslodavci
+          🔍 Pretraga poslodavaca
         </Link>
 
         <Link href="/dashboard/email-logovi" style={buttonStyle}>
