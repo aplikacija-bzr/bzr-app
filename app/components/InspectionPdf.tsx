@@ -5,7 +5,6 @@ import {
   Text,
   View,
   StyleSheet,
-  Image,
   Font,
 } from "@react-pdf/renderer";
 
@@ -13,6 +12,7 @@ type InspectionPdfItem = {
   question: string;
   answer: "DA" | "NE" | string;
   comment?: string | null;
+  photos?: string[];
 };
 
 type Props = {
@@ -28,10 +28,7 @@ type Props = {
 };
 
 const appUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  "https://bzr-app.vercel.app";
-
-const logoUrl = `${appUrl}/logo-transparentan.png`;
+  process.env.NEXT_PUBLIC_SITE_URL || "https://bzr-app.vercel.app";
 
 Font.register({
   family: "DejaVuSans",
@@ -44,55 +41,38 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: "DejaVuSans",
   },
-
-  // 🔵 MEMORANDUM
-  header: {
-    borderBottomWidth: 2,
-    borderBottomColor: "#000",
-    paddingBottom: 10,
+  memorandum: {
+    borderWidth: 2,
+    borderColor: "#000",
+    padding: 10,
     marginBottom: 14,
   },
-
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-
-  companyBlock: {
-    flexDirection: "column",
-  },
-
-  companyNameBig: {
-    fontSize: 16,
+  memorandumTop: {
+    fontSize: 18,
     fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 4,
   },
-
-  companySub: {
-    fontSize: 9,
-    marginTop: 2,
+  memorandumSub: {
+    fontSize: 10,
+    textAlign: "center",
+    marginBottom: 2,
   },
-
-  logo: {
-    width: 120,
-    height: 50,
-  },
-
   title: {
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#000",
     fontSize: 14,
     fontWeight: "bold",
-    marginTop: 10,
+    textAlign: "center",
   },
-
   meta: {
-    marginTop: 10,
     marginBottom: 12,
   },
-
   metaRow: {
     marginBottom: 3,
   },
-
   item: {
     borderWidth: 1,
     borderColor: "#ddd",
@@ -100,33 +80,28 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderRadius: 4,
   },
-
   question: {
     fontSize: 11,
     fontWeight: "bold",
+    marginBottom: 4,
   },
-
   answerYes: {
     color: "green",
     fontWeight: "bold",
   },
-
   answerNo: {
     color: "red",
     fontWeight: "bold",
   },
-
   comment: {
-    marginTop: 2,
+    marginTop: 3,
   },
-
   conclusion: {
-    marginTop: 20,
+    marginTop: 18,
     borderWidth: 1,
     borderColor: "#000",
     padding: 10,
   },
-
   conclusionTitle: {
     fontWeight: "bold",
     marginBottom: 6,
@@ -141,51 +116,39 @@ export default function InspectionPdf({
   employerEmail,
   contactPerson,
   items,
-  photos = [],
   title = "DNEVNA BZR KONTROLNA LISTA",
 }: Props) {
   const valid = items.filter((i) => i.answer === "DA" || i.answer === "NE");
   const da = valid.filter((i) => i.answer === "DA").length;
   const ne = valid.filter((i) => i.answer === "NE").length;
 
-  let stanje = "MERE PRIMENJENE";
-  if (ne === 1) stanje = "MANJE NEPRAVILNOSTI";
-  if (ne > 1) stanje = "NEZADOVOLJAVAJUĆE";
+  let stanje = "MERE ZA BZR PRIMENJENE";
+  if (ne === 1) stanje = "MERE ZA BZR PRIMENJENE ZADOVOLJAVAJUĆE";
+  if (ne > 1) stanje = "MERE ZA BZR NEZADOVOLJAVAJUĆE";
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-
-        {/* 🔥 MEMORANDUM */}
-        <View style={styles.header}>
-          <View style={styles.headerRow}>
-            <View style={styles.companyBlock}>
-              <Text style={styles.companyNameBig}>INPRO BZR</Text>
-              <Text style={styles.companySub}>
-                Bezbednost i zdravlje na radu
-              </Text>
-              <Text style={styles.companySub}>
-                Užice | office@inpro.rs
-              </Text>
-            </View>
-
-            <Image src={logoUrl} style={styles.logo} />
-          </View>
-
+        <View style={styles.memorandum}>
+          <Text style={styles.memorandumTop}>INPRO BZR</Text>
+          <Text style={styles.memorandumSub}>
+            Bezbednost i zdravlje na radu
+          </Text>
+          <Text style={styles.memorandumSub}>
+            Užice | office@inpro.rs
+          </Text>
           <Text style={styles.title}>{title}</Text>
         </View>
 
-        {/* META */}
         <View style={styles.meta}>
-          <Text style={styles.metaRow}>Poslodavac: {employerName}</Text>
-          <Text style={styles.metaRow}>Firma: {companyName}</Text>
-          <Text style={styles.metaRow}>Email: {employerEmail}</Text>
-          <Text style={styles.metaRow}>Kontakt: {contactPerson}</Text>
-          <Text style={styles.metaRow}>Datum: {inspectionDate}</Text>
-          <Text style={styles.metaRow}>Savetnik: {advisorName}</Text>
+          <Text style={styles.metaRow}>Poslodavac: {employerName || "-"}</Text>
+          <Text style={styles.metaRow}>Firma: {companyName || "-"}</Text>
+          <Text style={styles.metaRow}>Email: {employerEmail || "-"}</Text>
+          <Text style={styles.metaRow}>Kontakt: {contactPerson || "-"}</Text>
+          <Text style={styles.metaRow}>Datum: {inspectionDate || "-"}</Text>
+          <Text style={styles.metaRow}>Savetnik: {advisorName || "-"}</Text>
         </View>
 
-        {/* PITANJA */}
         {items.map((item, i) => (
           <View key={i} style={styles.item}>
             <Text style={styles.question}>
@@ -194,8 +157,10 @@ export default function InspectionPdf({
 
             <Text>
               Odgovor:{" "}
-              <Text style={item.answer === "NE" ? styles.answerNo : styles.answerYes}>
-                {item.answer}
+              <Text
+                style={item.answer === "NE" ? styles.answerNo : styles.answerYes}
+              >
+                {item.answer || "-"}
               </Text>
             </Text>
 
@@ -205,15 +170,13 @@ export default function InspectionPdf({
           </View>
         ))}
 
-        {/* ZAKLJUČAK */}
         <View style={styles.conclusion}>
           <Text style={styles.conclusionTitle}>ZAKLJUČAK</Text>
-          <Text>Ukupno: {valid.length}</Text>
-          <Text>DA: {da}</Text>
-          <Text>NE: {ne}</Text>
+          <Text>Ukupan broj pitanja: {valid.length}</Text>
+          <Text>Broj odgovora DA: {da}</Text>
+          <Text>Broj odgovora NE: {ne}</Text>
           <Text>Ocena: {stanje}</Text>
         </View>
-
       </Page>
     </Document>
   );
