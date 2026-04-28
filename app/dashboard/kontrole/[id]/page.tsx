@@ -1,5 +1,3 @@
-// BITNE IZMENE SU SAMO U STILOVIMA (LAKŠE ZA TABLET)
-
 'use client'
 
 import Link from 'next/link'
@@ -10,196 +8,175 @@ import { PDFDownloadLink } from '@react-pdf/renderer'
 import InspectionPdf from '@/app/components/InspectionPdf'
 import PhotoUpload from '@/app/components/inspection/PhotoUpload'
 
+type ChecklistItem = {
+  id: string
+  title: string
+  description?: string | null
+}
+
+type InspectionStatus = 'draft' | 'completed'
+
+type AnswerRow = {
+  checklist_item_id: string
+  answer: 'da' | 'ne' | null
+  comment: string | null
+}
+
+type InspectionRow = {
+  id: string
+  status: InspectionStatus
+  checklist_id?: string | null
+  client_name?: string | null
+  object_name?: string | null
+  inspection_date?: string | null
+  advisor_name?: string | null
+  created_at?: string | null
+}
+
+type PhotoRow = {
+  id: string
+  file_path?: string | null
+  file_url?: string | null
+  created_at?: string | null
+}
+
 const BUCKET = 'inspection-images'
 const SUPABASE_URL = 'https://awvrwilxbvibzyegwila.supabase.co'
 
 export default function InspectionDetailPage() {
+  const params = useParams()
+  const rawId = params?.id
+  const inspectionId =
+    typeof rawId === 'string' ? rawId : Array.isArray(rawId) ? rawId[0] : ''
 
-  // ... OSTALO OSTAVI ISTO ...
+  const supabase = createClient()
+
+  const [items, setItems] = useState<ChecklistItem[]>([])
+  const [answers, setAnswers] = useState<Record<string, string>>({})
+  const [comments, setComments] = useState<Record<string, string>>({})
+  const [status, setStatus] = useState<InspectionStatus>('draft')
+  const [loading, setLoading] = useState(true)
+  const [savingItemId, setSavingItemId] = useState<string | null>(null)
+  const [savingCommentId, setSavingCommentId] = useState<string | null>(null)
+  const [finishing, setFinishing] = useState(false)
+  const [sendingEmail, setSendingEmail] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
+  const [clientName, setClientName] = useState('')
+  const [clientPageId, setClientPageId] = useState('')
+  const [objectName, setObjectName] = useState('')
+  const [advisorName, setAdvisorName] = useState('')
+  const [inspectionDate, setInspectionDate] = useState('')
+  const [recipientEmail, setRecipientEmail] = useState('')
+  const [photos, setPhotos] = useState<PhotoRow[]>([])
+
+  const commentTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!inspectionId) return
+
+      const { data: inspection } = await supabase
+        .from('inspections')
+        .select('*')
+        .eq('id', inspectionId)
+        .single()
+
+      if (!inspection) return
+
+      setStatus(inspection.status)
+      setClientName(inspection.client_name || '')
+      setObjectName(inspection.object_name || '')
+      setAdvisorName(inspection.advisor_name || '')
+
+      const { data: itemsData } = await supabase
+        .from('checklist_items')
+        .select('*')
+        .order('sort_order')
+
+      setItems(itemsData || [])
+
+      const { data: answersData } = await supabase
+        .from('inspection_answers')
+        .select('*')
+        .eq('inspection_id', inspectionId)
+
+      const a: any = {}
+      const c: any = {}
+
+      answersData?.forEach((row: any) => {
+        a[row.checklist_item_id] = row.answer
+        c[row.checklist_item_id] = row.comment || ''
+      })
+
+      setAnswers(a)
+      setComments(c)
+      setLoading(false)
+    }
+
+    fetchData()
+  }, [inspectionId])
+
+  const pdfItems = useMemo(() => {
+    return items.map((item) => ({
+      question: item.title,
+      answer: answers[item.id] === 'da' ? 'DA' : answers[item.id] === 'ne' ? 'NE' : '',
+      comment: comments[item.id] || '',
+    }))
+  }, [items, answers, comments])
+
+  if (loading) return <div>Učitavanje...</div>
 
   return (
-    <>
-      <div
-        style={{
-          padding: 24,
-          paddingBottom: status === 'draft' ? 130 : 20,
-          maxWidth: 1000, // 👈 ŠIRE ZA TABLET
-          margin: '0 auto',
-        }}
-      >
+    <div style={{ padding: 20, maxWidth: 900 }}>
+      <Link href="/dashboard/poslodavci">← Nazad</Link>
 
-        <h1 style={{ fontSize: 26 }}>Kontrolna lista</h1>
+      <h1>Kontrolna lista</h1>
 
-        {/* 🔽 PITANJA */}
-        {items.map((item, index) => {
-          const currentAnswer = answers[item.id]
-          const currentComment = comments[item.id] || ''
+      {items.map((item, index) => {
+        const currentAnswer = answers[item.id]
+        const currentComment = comments[item.id] || ''
 
-          return (
-            <div
-              key={item.id}
-              style={{
-                marginBottom: 20,
-                padding: 20,
-                border: '1px solid #ddd',
-                borderRadius: 12,
-                background:
-                  currentAnswer === 'ne'
-                    ? '#ffe5e5'
-                    : currentAnswer === 'da'
-                    ? '#e6ffe6'
-                    : '#fff',
-              }}
-            >
-              <p style={{ fontSize: 20, marginBottom: 12 }}>
-                <b>{index + 1}.</b> {item.title}
-              </p>
+        return (
+          <div key={item.id} style={{ marginBottom: 16 }}>
+            <p>
+              <b>{index + 1}.</b> {item.title}
+            </p>
 
-              {/* 🔥 VEĆA DUGMAD */}
-              <div style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
-                <button
-                  onClick={() => handleAnswer(item.id, 'da')}
-                  style={{
-                    flex: 1,
-                    padding: '18px',
-                    fontSize: 20,
-                    fontWeight: 'bold',
-                    borderRadius: 12,
-                    backgroundColor:
-                      currentAnswer === 'da' ? '#16a34a' : '#fff',
-                    color: currentAnswer === 'da' ? '#fff' : '#111',
-                    border: '2px solid #16a34a',
-                  }}
-                >
-                  DA
-                </button>
+            <button onClick={() => setAnswers((p) => ({ ...p, [item.id]: 'da' }))}>
+              DA
+            </button>
 
-                <button
-                  onClick={() => handleAnswer(item.id, 'ne')}
-                  style={{
-                    flex: 1,
-                    padding: '18px',
-                    fontSize: 20,
-                    fontWeight: 'bold',
-                    borderRadius: 12,
-                    backgroundColor:
-                      currentAnswer === 'ne' ? '#dc2626' : '#fff',
-                    color: currentAnswer === 'ne' ? '#fff' : '#111',
-                    border: '2px solid #dc2626',
-                  }}
-                >
-                  NE
-                </button>
-              </div>
+            <button onClick={() => setAnswers((p) => ({ ...p, [item.id]: 'ne' }))}>
+              NE
+            </button>
 
-              {/* 🔥 VEĆI KOMENTAR */}
-              <textarea
-                value={currentComment}
-                onChange={(e) =>
-                  handleCommentChange(item.id, e.target.value)
-                }
-                placeholder="Komentar..."
-                rows={4}
-                style={{
-                  width: '100%',
-                  padding: 14,
-                  fontSize: 16,
-                  borderRadius: 10,
-                  border: '1px solid #ccc',
-                }}
-              />
-            </div>
-          )
-        })}
-
-        {/* 🔥 FOTOGRAFIJE VEĆE */}
-        <div style={{ marginTop: 20 }}>
-          <h3>Fotografije</h3>
-
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
-            {photos.map((photo) => {
-              const imageUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${photo.file_path}`
-
-              return (
-                <div key={photo.id}>
-                  <img
-                    src={imageUrl}
-                    style={{
-                      width: 220, // 👈 VEĆE
-                      height: 160,
-                      objectFit: 'cover',
-                      borderRadius: 10,
-                    }}
-                  />
-                </div>
-              )
-            })}
+            <textarea
+              value={currentComment}
+              onChange={(e) =>
+                setComments((p) => ({ ...p, [item.id]: e.target.value }))
+              }
+            />
           </div>
-        </div>
+        )
+      })}
 
-        {/* 🔥 EMAIL VEĆI */}
-        <div style={{ marginTop: 24 }}>
-          <h3>Pošalji PDF</h3>
-
-          <input
-            value={recipientEmail}
-            onChange={(e) => setRecipientEmail(e.target.value)}
-            placeholder="Email"
-            style={{
-              width: '100%',
-              padding: 14,
-              fontSize: 18,
-              borderRadius: 10,
-              border: '1px solid #ccc',
-            }}
+      <PDFDownloadLink
+        document={
+          <InspectionPdf
+            title="DNEVNA BZR KONTROLNA LISTA"
+            items={pdfItems}
+            companyName={clientName}
+            employerName={clientName}
+            advisorName={advisorName}
+            inspectionDate={inspectionDate}
+            photos={[]}
           />
-
-          <button
-            onClick={sendInspectionEmail}
-            style={{
-              marginTop: 10,
-              width: '100%',
-              padding: 16,
-              fontSize: 18,
-              borderRadius: 12,
-              backgroundColor: '#111827',
-              color: 'white',
-            }}
-          >
-            Pošalji email
-          </button>
-        </div>
-      </div>
-
-      {/* 🔥 STICKY DUGME VEĆE */}
-      {status === 'draft' && (
-        <div
-          style={{
-            position: 'fixed',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            background: 'white',
-            padding: 16,
-            borderTop: '1px solid #ddd',
-          }}
-        >
-          <button
-            onClick={saveInspection}
-            style={{
-              width: '100%',
-              padding: 18,
-              fontSize: 20,
-              fontWeight: 'bold',
-              backgroundColor: '#16a34a',
-              color: 'white',
-              borderRadius: 14,
-            }}
-          >
-            Snimi kontrolu
-          </button>
-        </div>
-      )}
-    </>
+        }
+        fileName="kontrola.pdf"
+      >
+        {({ loading }) => (loading ? 'PDF...' : 'Preuzmi PDF')}
+      </PDFDownloadLink>
+    </div>
   )
 }
