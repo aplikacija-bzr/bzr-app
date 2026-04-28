@@ -122,14 +122,10 @@ export async function POST(req: Request) {
     let items: any[] = [];
 
     if (inspectionIds.length > 0) {
-      const { data: photosData, error: photosError } = await supabase
+      const { data: photosData } = await supabase
         .from("inspection_photos")
         .select("id, inspection_id, file_path")
         .in("inspection_id", inspectionIds);
-
-      if (photosError) {
-        throw new Error(`Greška inspection_photos: ${photosError.message}`);
-      }
 
       const photos = (photosData ?? []) as PhotoRow[];
       const photosMap = new Map<string, string[]>();
@@ -144,15 +140,11 @@ export async function POST(req: Request) {
         photosMap.get(p.inspection_id)!.push(publicUrl);
       });
 
-      const { data: answersData, error: answersError } = await supabase
+      const { data: answersData } = await supabase
         .from("inspection_answers")
         .select("id, inspection_id, answer, comment")
         .in("inspection_id", inspectionIds)
         .eq("answer", "ne");
-
-      if (answersError) {
-        throw new Error(`Greška inspection_answers: ${answersError.message}`);
-      }
 
       const answers = (answersData ?? []) as AnswerRow[];
 
@@ -202,7 +194,15 @@ export async function POST(req: Request) {
       photos: [],
     });
 
-    const pdfBuffer = await pdf(pdfElement).toBuffer();
+    // 🔥 KLJUČNA IZMENA
+    const pdfStream = await pdf(pdfElement).toBuffer();
+    const chunks: Uint8Array[] = [];
+
+    for await (const chunk of pdfStream as any) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+
+    const pdfBuffer = Buffer.concat(chunks);
 
     await transporter.sendMail({
       from: process.env.SMTP_FROM,
@@ -220,6 +220,7 @@ export async function POST(req: Request) {
         {
           filename: `mesecni_izvestaj_${month}.pdf`,
           content: pdfBuffer,
+          contentType: "application/pdf",
         },
       ],
     });
