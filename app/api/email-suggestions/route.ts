@@ -2,13 +2,21 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 export const runtime = 'nodejs'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+export const dynamic = 'force-dynamic'
 
 export async function GET() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return NextResponse.json(
+      { error: 'Nedostaju Supabase environment variables.' },
+      { status: 500 }
+    )
+  }
+
+  const supabase = createClient(supabaseUrl, serviceRoleKey)
+
   const { data, error } = await supabase
     .from('email_logs')
     .select('recipient_email')
@@ -20,11 +28,7 @@ export async function GET() {
   }
 
   const emails = Array.from(
-    new Set(
-      (data || [])
-        .map((row) => row.recipient_email)
-        .filter(Boolean)
-    )
+    new Set((data || []).map((row) => row.recipient_email).filter(Boolean))
   )
 
   return NextResponse.json({ emails })
