@@ -1,146 +1,136 @@
-'use client'
+import Link from 'next/link'
+import { createClient } from '@/utils/supabase/server'
 
-import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import { createClient } from '@/utils/supabase/client'
+type Client = {
+  id: string
+  naziv: string | null
+  employer_id: string | null
+}
 
-export default function NewInspectionPage() {
-  const supabase = createClient()
-  const router = useRouter()
-  const params = useParams()
+type Checklist = {
+  id: string
+  name?: string | null
+  naziv?: string | null
+  title?: string | null
+}
 
-  const clientId = params.id as string
+export default async function NewInspectionPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const supabase = await createClient()
+  const { id: clientId } = await params
 
-  const [client, setClient] = useState<any>(null)
-  const [checklist, setChecklist] = useState<any>(null)
+  const { data: client, error: clientError } = await supabase
+    .from('klijenti')
+    .select('id, naziv, employer_id')
+    .eq('id', clientId)
+    .single()
 
-  const [objectName, setObjectName] = useState('')
-  const [advisorName, setAdvisorName] = useState('')
-  const [inspectionDate, setInspectionDate] = useState(
-    new Date().toISOString().slice(0, 10)
-  )
+  const { data: checklist, error: checklistError } = await supabase
+    .from('checklists')
+    .select('id, name')
+    .limit(1)
+    .maybeSingle()
 
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const today = new Date().toISOString().slice(0, 10)
 
-  useEffect(() => {
-    const load = async () => {
-      const { data: clientData } = await supabase
-        .from('klijenti')
-        .select('id, naziv, employer_id')
-        .eq('id', clientId)
-        .single()
+  const checklistLabel =
+    (checklist as Checklist | null)?.name ||
+    (checklist as Checklist | null)?.naziv ||
+    (checklist as Checklist | null)?.title ||
+    'Kontrolna lista'
 
-      const { data: checklistData } = await supabase
-        .from('checklists')
-        .select('*')
-        .limit(1)
-        .single()
-
-      setClient(clientData)
-      setChecklist(checklistData)
-      setLoading(false)
-    }
-
-    load()
-  }, [clientId])
-
-  const handleSubmit = async (e: any) => {
-    e.preventDefault()
-
-    if (!client?.employer_id) {
-      alert('Nema employer_id')
-      return
-    }
-
-    if (!checklist?.id) {
-      alert('Nema checklist')
-      return
-    }
-
-    setSaving(true)
-
-    const res = await fetch('/api/create-inspection', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        employer_id: client.employer_id,
-        client_name: client.naziv,
-        checklist_id: checklist.id,
-        object_name: objectName,
-        advisor_name: advisorName,
-        inspection_date: inspectionDate,
-      }),
-    })
-
-    const data = await res.json()
-
-    if (!res.ok) {
-      alert(data.error || 'Greška')
-      setSaving(false)
-      return
-    }
-
-    router.push(`/dashboard/kontrole/${data.id}`)
-  }
-
-  if (loading) {
-    return <div style={{ padding: 20 }}>Učitavanje...</div>
+  if (clientError || !client) {
+    return (
+      <div style={{ padding: 20 }}>
+        <Link href="/dashboard/poslodavci">← Nazad</Link>
+        <p style={{ color: 'red' }}>Greška pri učitavanju poslodavca.</p>
+      </div>
+    )
   }
 
   return (
     <div style={{ padding: 20, maxWidth: 600 }}>
+      <Link href={`/dashboard/poslodavci/${clientId}`}>
+        ← Nazad na poslodavca
+      </Link>
+
       <h1>Nova kontrola</h1>
 
       <p>
-        Poslodavac: <b>{client?.naziv}</b>
+        Poslodavac: <b>{client.naziv}</b>
       </p>
 
-      <form onSubmit={handleSubmit} style={{ marginTop: 20 }}>
-        <div style={{ marginBottom: 12 }}>
-          <label>Objekat</label>
-          <input
-            value={objectName}
-            onChange={(e) => setObjectName(e.target.value)}
-            style={{ width: '100%', padding: 10 }}
-          />
-        </div>
+      {!client.employer_id ? (
+        <p style={{ color: 'red' }}>
+          Nema employer_id za ovog poslodavca.
+        </p>
+      ) : checklistError ? (
+        <p style={{ color: 'red' }}>
+          Greška kontrolne liste: {checklistError.message}
+        </p>
+      ) : !checklist?.id ? (
+        <p style={{ color: 'red' }}>Nema kontrolne liste.</p>
+      ) : (
+        <form action="/api/create-inspection" method="POST">
+          <input type="hidden" name="employer_id" value={client.employer_id} />
+          <input type="hidden" name="client_name" value={client.naziv || ''} />
+          <input type="hidden" name="checklist_id" value={checklist.id} />
 
-        <div style={{ marginBottom: 12 }}>
-          <label>Savetnik</label>
-          <input
-            value={advisorName}
-            onChange={(e) => setAdvisorName(e.target.value)}
-            style={{ width: '100%', padding: 10 }}
-          />
-        </div>
+          <div style={{ marginBottom: 12 }}>
+            <label>Kontrolna lista</label>
+            <input
+              value={checklistLabel}
+              disabled
+              style={{ width: '100%', padding: 10 }}
+            />
+          </div>
 
-        <div style={{ marginBottom: 12 }}>
-          <label>Datum</label>
-          <input
-            type="date"
-            value={inspectionDate}
-            onChange={(e) => setInspectionDate(e.target.value)}
-            style={{ width: '100%', padding: 10 }}
-          />
-        </div>
+          <div style={{ marginBottom: 12 }}>
+            <label>Objekat</label>
+            <input
+              name="object_name"
+              style={{ width: '100%', padding: 10 }}
+            />
+          </div>
 
-        <button
-          type="submit"
-          disabled={saving}
-          style={{
-            padding: 14,
-            backgroundColor: '#16a34a',
-            color: 'white',
-            border: 'none',
-            borderRadius: 10,
-            fontSize: 16,
-            fontWeight: 'bold',
-          }}
-        >
-          {saving ? 'Kreiranje...' : 'Kreiraj kontrolu'}
-        </button>
-      </form>
+          <div style={{ marginBottom: 12 }}>
+            <label>Savetnik</label>
+            <input
+              name="advisor_name"
+              style={{ width: '100%', padding: 10 }}
+            />
+          </div>
+
+          <div style={{ marginBottom: 12 }}>
+            <label>Datum</label>
+            <input
+              type="date"
+              name="inspection_date"
+              defaultValue={today}
+              required
+              style={{ width: '100%', padding: 10 }}
+            />
+          </div>
+
+          <button
+            type="submit"
+            style={{
+              padding: 14,
+              backgroundColor: '#16a34a',
+              color: 'white',
+              border: 'none',
+              borderRadius: 10,
+              fontSize: 16,
+              fontWeight: 'bold',
+            }}
+          >
+            Kreiraj kontrolu
+          </button>
+        </form>
+      )}
     </div>
   )
 }
