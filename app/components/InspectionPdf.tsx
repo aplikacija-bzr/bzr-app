@@ -6,6 +6,7 @@ import {
   View,
   StyleSheet,
   Font,
+  Image,
 } from "@react-pdf/renderer";
 
 type InspectionPdfItem = {
@@ -36,11 +37,7 @@ Font.register({
 });
 
 const styles = StyleSheet.create({
-  page: {
-    padding: 24,
-    fontSize: 10,
-    fontFamily: "DejaVuSans",
-  },
+  page: { padding: 24, fontSize: 10, fontFamily: "DejaVuSans" },
   memorandum: {
     borderWidth: 2,
     borderColor: "#000",
@@ -53,28 +50,16 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 4,
   },
-  firmSub: {
-    fontSize: 11,
-    textAlign: "center",
-    marginBottom: 2,
-  },
+  firmSub: { fontSize: 11, textAlign: "center", marginBottom: 2 },
   line: {
     borderBottomWidth: 1,
     borderBottomColor: "#000",
     marginTop: 8,
     marginBottom: 8,
   },
-  title: {
-    fontSize: 15,
-    fontWeight: "bold",
-    textAlign: "center",
-  },
-  meta: {
-    marginBottom: 12,
-  },
-  metaRow: {
-    marginBottom: 3,
-  },
+  title: { fontSize: 15, fontWeight: "bold", textAlign: "center" },
+  meta: { marginBottom: 12 },
+  metaRow: { marginBottom: 3 },
   item: {
     borderWidth: 1,
     borderColor: "#ddd",
@@ -82,21 +67,22 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderRadius: 4,
   },
-  question: {
-    fontSize: 11,
-    fontWeight: "bold",
-    marginBottom: 4,
+  question: { fontSize: 11, fontWeight: "bold", marginBottom: 4 },
+  answerYes: { color: "green", fontWeight: "bold" },
+  answerNo: { color: "red", fontWeight: "bold" },
+  comment: { marginTop: 3 },
+  photosWrap: {
+    marginTop: 8,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
   },
-  answerYes: {
-    color: "green",
-    fontWeight: "bold",
-  },
-  answerNo: {
-    color: "red",
-    fontWeight: "bold",
-  },
-  comment: {
-    marginTop: 3,
+  photo: {
+    width: 150,
+    height: 105,
+    objectFit: "cover",
+    borderWidth: 1,
+    borderColor: "#ccc",
   },
   conclusion: {
     marginTop: 18,
@@ -104,10 +90,7 @@ const styles = StyleSheet.create({
     borderColor: "#000",
     padding: 10,
   },
-  conclusionTitle: {
-    fontWeight: "bold",
-    marginBottom: 6,
-  },
+  conclusionTitle: { fontWeight: "bold", marginBottom: 6 },
 });
 
 export default function InspectionPdf({
@@ -118,6 +101,7 @@ export default function InspectionPdf({
   employerEmail,
   contactPerson,
   items,
+  photos = [],
   title = "DNEVNA BZR KONTROLNA LISTA",
 }: Props) {
   const valid = items.filter((i) => i.answer === "DA" || i.answer === "NE");
@@ -133,18 +117,10 @@ export default function InspectionPdf({
       <Page size="A4" style={styles.page}>
         <View style={styles.memorandum}>
           <Text style={styles.firmName}>INPRO BZR</Text>
-          <Text style={styles.firmSub}>
-            Bezbednost i zdravlje na radu
-          </Text>
-          <Text style={styles.firmSub}>
-            d.o.o. Bajina Bašta
-          </Text>
-          <Text style={styles.firmSub}>
-            office@inpro.rs
-          </Text>
-
+          <Text style={styles.firmSub}>Bezbednost i zdravlje na radu</Text>
+          <Text style={styles.firmSub}>d.o.o. Bajina Bašta</Text>
+          <Text style={styles.firmSub}>office@inpro.rs</Text>
           <View style={styles.line} />
-
           <Text style={styles.title}>{title}</Text>
         </View>
 
@@ -157,26 +133,52 @@ export default function InspectionPdf({
           <Text style={styles.metaRow}>Savetnik: {advisorName || "-"}</Text>
         </View>
 
-        {items.map((item, i) => (
-          <View key={i} style={styles.item}>
-            <Text style={styles.question}>
-              {i + 1}. {item.question}
-            </Text>
+        {items.map((item, i) => {
+          const itemPhotos = item.photos || [];
 
-            <Text>
-              Odgovor:{" "}
-              <Text
-                style={item.answer === "NE" ? styles.answerNo : styles.answerYes}
-              >
-                {item.answer || "-"}
+          return (
+            <View key={i} style={styles.item}>
+              <Text style={styles.question}>
+                {i + 1}. {item.question}
               </Text>
-            </Text>
 
-            <Text style={styles.comment}>
-              Komentar: {item.comment || "—"}
-            </Text>
+              <Text>
+                Odgovor:{" "}
+                <Text
+                  style={
+                    item.answer === "NE" ? styles.answerNo : styles.answerYes
+                  }
+                >
+                  {item.answer || "-"}
+                </Text>
+              </Text>
+
+              <Text style={styles.comment}>
+                Komentar: {item.comment || "—"}
+              </Text>
+
+              {itemPhotos.length > 0 ? (
+                <View style={styles.photosWrap}>
+                  {itemPhotos.map((src, idx) => (
+                    <Image key={idx} src={src} style={styles.photo} />
+                  ))}
+                </View>
+              ) : null}
+            </View>
+          );
+        })}
+
+        {photos.length > 0 ? (
+          <View style={styles.item}>
+            <Text style={styles.question}>Fotografije kontrole</Text>
+
+            <View style={styles.photosWrap}>
+              {photos.map((src, idx) => (
+                <Image key={idx} src={src} style={styles.photo} />
+              ))}
+            </View>
           </View>
-        ))}
+        ) : null}
 
         <View style={styles.conclusion}>
           <Text style={styles.conclusionTitle}>ZAKLJUČAK</Text>
