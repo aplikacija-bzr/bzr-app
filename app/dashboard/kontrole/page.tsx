@@ -43,9 +43,7 @@ export default function InspectionDetailPage() {
   const [inspectionDate, setInspectionDate] = useState('')
   const [recipientEmail, setRecipientEmail] = useState('')
 
-  const commentTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>(
-    {}
-  )
+  const commentTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
   useEffect(() => {
     const fetchData = async () => {
@@ -84,10 +82,7 @@ export default function InspectionDetailPage() {
       const commentsMap: Record<string, string> = {}
 
       ;(answersData as AnswerRow[] | null)?.forEach((row) => {
-        if (row.answer) {
-          answersMap[row.checklist_item_id] = row.answer
-        }
-
+        if (row.answer) answersMap[row.checklist_item_id] = row.answer
         commentsMap[row.checklist_item_id] = row.comment || ''
       })
 
@@ -125,6 +120,19 @@ export default function InspectionDetailPage() {
 
   const allAnswered = items.length > 0 && unansweredCount === 0
 
+  const pdfItems = useMemo(() => {
+    return items.map((item) => ({
+      question: item.title,
+      answer:
+        answers[item.id] === 'da'
+          ? 'DA'
+          : answers[item.id] === 'ne'
+            ? 'NE'
+            : '',
+      comment: comments[item.id] || '',
+    }))
+  }, [items, answers, comments])
+
   const handleAnswer = async (itemId: string, value: 'da' | 'ne') => {
     if (status === 'completed') return
 
@@ -143,9 +151,7 @@ export default function InspectionDetailPage() {
     try {
       const res = await fetch('/api/inspection-answers', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           inspection_id: inspectionId,
           checklist_item_id: itemId,
@@ -159,13 +165,8 @@ export default function InspectionDetailPage() {
       if (!res.ok) {
         setAnswers((prev) => {
           const next = { ...prev }
-
-          if (previousValue) {
-            next[itemId] = previousValue
-          } else {
-            delete next[itemId]
-          }
-
+          if (previousValue) next[itemId] = previousValue
+          else delete next[itemId]
           return next
         })
 
@@ -174,13 +175,8 @@ export default function InspectionDetailPage() {
     } catch {
       setAnswers((prev) => {
         const next = { ...prev }
-
-        if (previousValue) {
-          next[itemId] = previousValue
-        } else {
-          delete next[itemId]
-        }
-
+        if (previousValue) next[itemId] = previousValue
+        else delete next[itemId]
         return next
       })
 
@@ -200,9 +196,7 @@ export default function InspectionDetailPage() {
     try {
       const res = await fetch('/api/inspection-answers', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           inspection_id: inspectionId,
           checklist_item_id: itemId,
@@ -257,9 +251,7 @@ export default function InspectionDetailPage() {
     try {
       const res = await fetch('/api/inspection-complete', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ inspection_id: inspectionId }),
       })
 
@@ -292,16 +284,11 @@ export default function InspectionDetailPage() {
     try {
       const res = await fetch('/api/send-inspection-email', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           to: recipientEmail,
           subject: 'BZR kontrolna lista',
-          items,
-          answers,
-          comments,
-          status,
+          items: pdfItems,
           inspectionTitle: 'BZR kontrolna lista',
           inspectionDate,
         }),
@@ -392,8 +379,8 @@ export default function InspectionDetailPage() {
                 currentAnswer === 'ne'
                   ? '#ffe5e5'
                   : currentAnswer === 'da'
-                  ? '#e6ffe6'
-                  : '#fff',
+                    ? '#e6ffe6'
+                    : '#fff',
             }}
           >
             <p style={{ marginTop: 0, marginBottom: 10 }}>
@@ -430,29 +417,27 @@ export default function InspectionDetailPage() {
               )}
             </div>
 
-            <div>
-              <textarea
-                placeholder="Komentar / napomena..."
-                value={currentComment}
-                disabled={status === 'completed'}
-                onChange={(e) => handleCommentChange(item.id, e.target.value)}
-                rows={3}
-                style={{
-                  width: '100%',
-                  padding: 10,
-                  borderRadius: 8,
-                  border: '1px solid #ccc',
-                  resize: 'vertical',
-                  boxSizing: 'border-box',
-                }}
-              />
+            <textarea
+              placeholder="Komentar / napomena..."
+              value={currentComment}
+              disabled={status === 'completed'}
+              onChange={(e) => handleCommentChange(item.id, e.target.value)}
+              rows={3}
+              style={{
+                width: '100%',
+                padding: 10,
+                borderRadius: 8,
+                border: '1px solid #ccc',
+                resize: 'vertical',
+                boxSizing: 'border-box',
+              }}
+            />
 
-              {savingCommentId === item.id && (
-                <div style={{ marginTop: 6, fontSize: 14 }}>
-                  Snimanje komentara...
-                </div>
-              )}
-            </div>
+            {savingCommentId === item.id && (
+              <div style={{ marginTop: 6, fontSize: 14 }}>
+                Snimanje komentara...
+              </div>
+            )}
           </div>
         )
       })}
@@ -461,12 +446,13 @@ export default function InspectionDetailPage() {
         <PDFDownloadLink
           document={
             <InspectionPdf
-              items={items}
-              answers={answers}
-              comments={comments}
-              status={status}
-              inspectionTitle="BZR kontrolna lista"
+              title="DNEVNA BZR KONTROLNA LISTA"
+              items={pdfItems}
+              companyName=""
+              employerName=""
+              advisorName=""
               inspectionDate={inspectionDate}
+              photos={[]}
             />
           }
           fileName="kontrolna_lista.pdf"
