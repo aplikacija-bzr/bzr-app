@@ -15,7 +15,6 @@ type InspectionRow = {
 type AnswerRow = {
   id: string;
   inspection_id: string;
-  checklist_item_id?: string | null;
   answer: string;
   comment: string | null;
 };
@@ -36,18 +35,6 @@ function formatDateSr(value: string | null | undefined) {
   return new Date(value).toLocaleDateString("sr-RS");
 }
 
-function isInMonth(dateValue: string | null | undefined, month: string) {
-  if (!dateValue) return false;
-
-  const d = new Date(dateValue);
-  if (Number.isNaN(d.getTime())) return false;
-
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-
-  return `${y}-${m}` === month;
-}
-
 function getInspectionDate(row: InspectionRow) {
   return row.inspection_date || row.created_at || null;
 }
@@ -63,14 +50,17 @@ async function buildMonthlyPdf({
 }) {
   const supabase = await createClient();
 
-  // 🔥 OVDE JE KLJUČNA IZMENA
-  const { data: employerRows } = await supabase
+  const [year, m] = month.split("-");
+  const startDate = `${year}-${m}-01`;
+  const endDate = new Date(Number(year), Number(m), 1)
+    .toISOString()
+    .slice(0, 10);
+
+  const { data: employer } = await supabase
     .from("employers")
     .select("id, name, email, contact_person")
     .eq("id", employerId)
-    .limit(1);
-
-  const employer = employerRows?.[0];
+    .maybeSingle();
 
   const employerName = employer?.name || "Firma";
   const employerEmail = employer?.email || "";
@@ -80,22 +70,31 @@ async function buildMonthlyPdf({
     .from("inspections")
     .select("id, created_at, inspection_date, object_name, client_name")
     .eq("employer_id", employerId)
-    .order("created_at", { ascending: true });
+    .gte("inspection_date", startDate)
+    .lt("inspection_date", endDate)
+    .order("inspection_date", { ascending: true });
 
-  const allInspections = (inspectionsData ?? []) as InspectionRow[];
-
-  const inspections = allInspections.filter((row) =>
-    isInMonth(getInspectionDate(row), month)
-  );
-
+  const inspections = (inspectionsData ?? []) as InspectionRow[];
   const inspectionIds = inspections.map((i) => i.id);
 
-  const { data: photosData } = await supabase
-    .from("inspection_photos")
-    .select("id, inspection_id, file_path")
-    .in("inspection_id", inspectionIds);
+  let photos: PhotoRow[] = [];
+  let answers: AnswerRow[] = [];
 
-  const photos = (photosData ?? []) as PhotoRow[];
+  if (inspectionIds.length > 0) {
+    const { data: photosData } = await supabase
+      .from("inspection_photos")
+      .select("id, inspection_id, file_path")
+      .in("inspection_id", inspectionIds);
+
+    photos = (photosData ?? []) as PhotoRow[];
+
+    const { data: answersData } = await supabase
+      .from("inspection_answers")
+      .select("id, inspection_id, answer, comment")
+      .in("inspection_id", inspectionIds);
+
+    answers = (answersData ?? []) as AnswerRow[];
+  }
 
   const photosMap = new Map<string, string[]>();
 
@@ -109,33 +108,42 @@ async function buildMonthlyPdf({
     photosMap.get(p.inspection_id)!.push(publicUrl);
   });
 
-  const { data: answersData } = await supabase
-    .from("inspection_answers")
-    .select("id, inspection_id, answer, comment")
-    .in("inspection_id", inspectionIds)
-    .eq("answer", "ne");
+  const answersMap = new Map<string, AnswerRow[]>();
 
-  const answers = (answersData ?? []) as AnswerRow[];
+  answers.forEach((a) => {
+    if (!answersMap.has(a.inspection_id)) {
+      answersMap.set(a.inspection_id, []);
+    }
+
+    answersMap.get(a.inspection_id)!.push(a);
+  });
 
   const items =
-    answers.length > 0
-      ? answers.map((a, index) => {
-          const inspection = inspections.find((i) => i.id === a.inspection_id);
-          const inspectionPhotos = photosMap.get(a.inspection_id) || [];
+    inspections.length > 0
+      ? inspections.map((inspection, index) => {
+          const inspectionAnswers = answersMap.get(inspection.id) || [];
+          const negativeAnswers = inspectionAnswers.filter(
+            (a) => a.answer?.toLowerCase() === "ne"
+          );
 
           return {
             question: `${index + 1}. ${
-              inspection?.object_name || inspection?.client_name || "-"
-            } | ${formatDateSr(getInspectionDate(inspection!))}`,
-            answer: "NE",
-            comment: a.comment || "",
-            photos: inspectionPhotos,
+              inspection.object_name || inspection.client_name || "-"
+            } | ${formatDateSr(getInspectionDate(inspection))}`,
+            answer: negativeAnswers.length > 0 ? "NE" : "DA",
+            comment:
+              negativeAnswers.length > 0
+                ? negativeAnswers
+                    .map((a) => a.comment)
+                    .filter(Boolean)
+                    .join("; ")
+                : "Kontrola izvršena. Nema evidentiranih nepravilnosti.",
+            photos: photosMap.get(inspection.id) || [],
           };
         })
       : [
           {
-            question:
-              "U izabranom periodu nema odgovora NE u dnevnim kontrolama.",
+            question: "U izabranom mesecu nema evidentiranih dnevnih kontrola.",
             answer: "",
             comment: "",
             photos: [],
@@ -146,8 +154,8 @@ async function buildMonthlyPdf({
     title: "MESEČNI IZVEŠTAJ",
     companyName: employerName,
     employerName,
-    employerEmail,     // 🔥 DODATO
-    contactPerson,     // 🔥 DODATO
+    employerEmail,
+    contactPerson,
     advisorName: advisorName || "-",
     inspectionDate: `Mesec: ${formatMonthLabel(month)}`,
     items,

@@ -8,11 +8,6 @@ type Client = {
   aktivan: boolean | null
 }
 
-type Employer = {
-  id: string
-  name: string | null
-}
-
 type Inspection = {
   id: string
   inspection_date: string | null
@@ -46,7 +41,10 @@ export default async function ClientPage({
           ← Nazad na poslodavce
         </Link>
 
-        <p className="text-red-600 font-medium">Greška pri učitavanju klijenta.</p>
+        <p className="text-red-600 font-medium">
+          Greška pri učitavanju klijenta.
+        </p>
+
         {clientError?.message && (
           <p className="text-sm text-gray-600 mt-2">{clientError.message}</p>
         )}
@@ -54,40 +52,28 @@ export default async function ClientPage({
     )
   }
 
-  let employer: Employer | null = null
-
-  if (client.naziv) {
-    const { data } = await supabase
-      .from('employers')
-      .select('id, name')
-      .eq('name', client.naziv)
-      .limit(1)
-      .maybeSingle()
-
-    employer = data
-  }
+  const employerId = client.id
 
   let inspections: Inspection[] = []
   let inspectionsErrorMessage = ''
 
-  if (client.naziv) {
-    const inspectionsResult = await supabase
-      .from('inspections')
-      .select('id, inspection_date, status, client_name, advisor_name, created_at')
-      .eq('client_name', client.naziv)
-      .order('inspection_date', { ascending: false })
+  const inspectionsResult = await supabase
+    .from('inspections')
+    .select('id, inspection_date, status, client_name, advisor_name, created_at')
+    .eq('employer_id', employerId)
+    .order('inspection_date', { ascending: false })
 
-    if (inspectionsResult.error) {
-      inspectionsErrorMessage = inspectionsResult.error.message
-    } else {
-      inspections = inspectionsResult.data || []
-    }
+  if (inspectionsResult.error) {
+    inspectionsErrorMessage = inspectionsResult.error.message
+  } else {
+    inspections = inspectionsResult.data || []
   }
 
-  // savetnik iz poslednje kontrole
   const advisorName =
-    inspections.find((inspection) => inspection.advisor_name && inspection.advisor_name.trim() !== '')
-      ?.advisor_name || ''
+    inspections.find(
+      (inspection) =>
+        inspection.advisor_name && inspection.advisor_name.trim() !== ''
+    )?.advisor_name || ''
 
   return (
     <div className="p-6 space-y-6">
@@ -152,7 +138,9 @@ export default async function ClientPage({
                   <p className="text-sm">
                     Datum:{' '}
                     {inspection.inspection_date
-                      ? new Date(inspection.inspection_date).toLocaleDateString('sr-RS')
+                      ? new Date(
+                          inspection.inspection_date
+                        ).toLocaleDateString('sr-RS')
                       : '-'}
                   </p>
 
@@ -182,16 +170,7 @@ export default async function ClientPage({
       <div className="rounded-xl border p-5 bg-white">
         <h2 className="text-lg font-semibold mb-3">Mesečni izveštaj</h2>
 
-        {employer ? (
-          <MonthlyReportButton
-            employerId={employer.id}
-            advisorName={advisorName}
-          />
-        ) : (
-          <p className="text-sm text-red-600">
-            Nije pronađen odgovarajući employer zapis.
-          </p>
-        )}
+        <MonthlyReportButton employerId={employerId} advisorName={advisorName} />
       </div>
     </div>
   )
