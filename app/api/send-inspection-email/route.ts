@@ -66,9 +66,6 @@ export async function POST(req: Request) {
       advisorName,
       inspectionDate,
       photos,
-      employerEmail,
-      contactPerson,
-      objectName,
     } = body;
 
     to = bodyTo;
@@ -88,15 +85,19 @@ export async function POST(req: Request) {
       items,
       companyName,
       employerName: employerName || companyName,
-      employerEmail,
-      contactPerson,
-      objectName,
       advisorName,
       inspectionDate,
       photos: photos || [],
     });
 
-    const pdfBuffer = await pdf(pdfElement).toBuffer();
+    const pdfStream = await pdf(pdfElement).toBuffer();
+    const chunks: Uint8Array[] = [];
+
+    for await (const chunk of pdfStream as any) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+
+    const pdfBuffer = Buffer.concat(chunks);
 
     await transporter.sendMail({
       from: process.env.SMTP_FROM,
@@ -111,6 +112,7 @@ export async function POST(req: Request) {
         {
           filename: "dnevna_kontrola.pdf",
           content: pdfBuffer,
+          contentType: "application/pdf",
         },
       ],
     });
