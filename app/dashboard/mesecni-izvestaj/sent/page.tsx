@@ -21,7 +21,7 @@ type ReportRow = {
   employers: {
     id: string;
     name: string;
-  } | null;
+  }[] | null; // 🔥 BITNO: ARRAY
 };
 
 export default async function SentMesecniIzvestajiPage({
@@ -56,13 +56,8 @@ export default async function SentMesecniIzvestajiPage({
       `)
       .order("sent_at", { ascending: false });
 
-    if (employerId) {
-      query = query.eq("employer_id", employerId);
-    }
-
-    if (month) {
-      query = query.eq("month", month);
-    }
+    if (employerId) query = query.eq("employer_id", employerId);
+    if (month) query = query.eq("month", month);
 
     return await query;
   }
@@ -84,13 +79,8 @@ export default async function SentMesecniIzvestajiPage({
       `)
       .order("sent_at", { ascending: false });
 
-    if (employerId) {
-      query = query.eq("employer_id", employerId);
-    }
-
-    if (month) {
-      query = query.eq("month", month);
-    }
+    if (employerId) query = query.eq("employer_id", employerId);
+    if (month) query = query.eq("month", month);
 
     return await query;
   }
@@ -123,10 +113,7 @@ export default async function SentMesecniIzvestajiPage({
         </h1>
 
         <div className="flex gap-2">
-          <Link
-            href="/"
-            className="bg-black text-white px-4 py-2 rounded text-sm"
-          >
+          <Link href="/" className="bg-black text-white px-4 py-2 rounded text-sm">
             Početna
           </Link>
 
@@ -178,23 +165,7 @@ export default async function SentMesecniIzvestajiPage({
         </Link>
       </form>
 
-      {errorMessage ? (
-        <div className="border border-red-300 bg-red-50 rounded p-4 text-sm text-red-700">
-          Greška pri učitavanju izveštaja: {errorMessage}
-        </div>
-      ) : (
-        <div className="text-sm text-gray-600">
-          Ukupno: {reports.length} izveštaja
-        </div>
-      )}
-
-      {!errorMessage && reports.length === 0 ? (
-        <div className="border rounded p-4 text-sm text-gray-500">
-          Nema podataka.
-        </div>
-      ) : null}
-
-      {!errorMessage && reports.length > 0 ? (
+      {!errorMessage && reports.length > 0 && (
         <table className="w-full border text-sm">
           <thead>
             <tr className="bg-gray-100 text-left">
@@ -210,18 +181,15 @@ export default async function SentMesecniIzvestajiPage({
 
           <tbody>
             {reports.map((r, i) => {
+              const employer = r.employers?.[0]; // 🔥 BITNO
+
               return (
                 <tr key={`${r.employer_id}-${r.sent_at}-${i}`}>
-                  <td className="p-2 border">{r.employers?.name ?? "-"}</td>
-
+                  <td className="p-2 border">{employer?.name ?? "-"}</td>
                   <td className="p-2 border">{formatMonth(r.month)}</td>
-
                   <td className="p-2 border">{r.recipient_email}</td>
-
                   <td className="p-2 border">{r.inspections_count ?? 0}</td>
-
                   <td className="p-2 border">{formatDate(r.sent_at)}</td>
-
                   <td className="p-2 border">{r.advisor_name ?? "-"}</td>
 
                   <td className="p-2 border">
@@ -235,7 +203,7 @@ export default async function SentMesecniIzvestajiPage({
                         employerId={r.employer_id}
                         advisorId={r.advisor_id}
                         month={r.month}
-                        employerName={r.employers?.name ?? ""}
+                        employerName={employer?.name ?? ""}
                         advisorName={r.advisor_name ?? ""}
                         inspectionsCount={r.inspections_count ?? 0}
                         email={r.recipient_email}
@@ -247,7 +215,7 @@ export default async function SentMesecniIzvestajiPage({
             })}
           </tbody>
         </table>
-      ) : null}
+      )}
     </div>
   );
 }
