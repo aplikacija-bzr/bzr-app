@@ -21,12 +21,20 @@ export default function InspectionDetailPage() {
   const [comments, setComments] = useState<Record<string, string>>({})
   const [status, setStatus] = useState<'draft' | 'completed'>('draft')
   const [loading, setLoading] = useState(true)
+
   const [clientName, setClientName] = useState('')
   const [objectName, setObjectName] = useState('')
   const [advisorName, setAdvisorName] = useState('')
   const [inspectionDate, setInspectionDate] = useState('')
+
   const [photos, setPhotos] = useState<any[]>([])
+  const [loadingPhotos, setLoadingPhotos] = useState(false)
+
   const [recipientEmail, setRecipientEmail] = useState('')
+  const [emailHistory, setEmailHistory] = useState<string[]>([])
+  const [sendingEmail, setSendingEmail] = useState(false)
+  const [emailMessage, setEmailMessage] = useState('')
+  const [emailError, setEmailError] = useState('')
 
   const commentTimeouts = useRef<any>({})
 
@@ -36,8 +44,35 @@ export default function InspectionDetailPage() {
     return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`
   }
 
+  const loadPhotos = async () => {
+    setLoadingPhotos(true)
+
+    const { data } = await supabase
+      .from('inspection_photos')
+      .select('*')
+      .eq('inspection_id', inspectionId)
+      .order('created_at', { ascending: false })
+
+    setPhotos(data || [])
+    setLoadingPhotos(false)
+  }
+
+  useEffect(() => {
+    const saved = localStorage.getItem('daily_email_history')
+
+    if (saved) {
+      try {
+        setEmailHistory(JSON.parse(saved))
+      } catch {
+        setEmailHistory([])
+      }
+    }
+  }, [])
+
   useEffect(() => {
     const load = async () => {
+      setLoading(true)
+
       const { data: inspection } = await supabase
         .from('inspections')
         .select('*')
@@ -45,34 +80,31 @@ export default function InspectionDetailPage() {
         .single()
 
       if (inspection) {
-        setStatus(inspection.status)
+        setStatus(inspection.status || 'draft')
         setClientName(inspection.client_name || '')
         setObjectName(inspection.object_name || '')
         setAdvisorName(inspection.advisor_name || '')
 
         const d = new Date(inspection.inspection_date || inspection.created_at)
         setInspectionDate(
-          `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`
+          `${String(d.getDate()).padStart(2, '0')}.${String(
+            d.getMonth() + 1
+          ).padStart(2, '0')}.${d.getFullYear()}`
         )
       }
 
       const { data: itemsData } = await supabase
         .from('checklist_items')
         .select('*')
-        .order('sort_order')
+        .order('sort_order', { ascending: true })
 
       const { data: answersData } = await supabase
         .from('inspection_answers')
         .select('*')
         .eq('inspection_id', inspectionId)
 
-      const { data: photosData } = await supabase
-        .from('inspection_photos')
-        .select('*')
-        .eq('inspection_id', inspectionId)
-
-      const a: any = {}
-      const c: any = {}
+      const a: Record<string, string> = {}
+      const c: Record<string, string> = {}
 
       answersData?.forEach((row: any) => {
         if (row.answer) a[row.checklist_item_id] = row.answer
@@ -82,34 +114,38 @@ export default function InspectionDetailPage() {
       setItems(itemsData || [])
       setAnswers(a)
       setComments(c)
-      setPhotos(photosData || [])
+
+      await loadPhotos()
       setLoading(false)
     }
 
-    load()
+    if (inspectionId) load()
+
+    return () => {
+      Object.values(commentTimeouts.current).forEach(clearTimeout)
+    }
   }, [inspectionId])
 
-  const pdfPhotoUrls = useMemo(
-    () => photos.map((p) => getImageUrl(p.file_path)).filter(Boolean),
-    [photos]
-  )
+  const pdfPhotoUrls = useMemo(() => {
+    return photos.map((p) => getImageUrl(p.file_path || p.file_url)).filter(Boolean)
+  }, [photos])
 
-  const pdfItems = useMemo(
-    () =>
-      items.map((item) => ({
-        question: item.title,
-        answer:
-          answers[item.id] === 'da'
-            ? 'DA'
-            : answers[item.id] === 'ne'
-            ? 'NE'
-            : '',
-        comment: comments[item.id] || '',
-      })),
-    [items, answers, comments]
-  )
+  const pdfItems = useMemo(() => {
+    return items.map((item) => ({
+      question: item.title || 'Pitanje',
+      answer:
+        answers[item.id] === 'da'
+          ? 'DA'
+          : answers[item.id] === 'ne'
+          ? 'NE'
+          : '',
+      comment: comments[item.id] || '',
+    }))
+  }, [items, answers, comments])
 
   const handleAnswer = async (id: string, value: 'da' | 'ne') => {
+    if (status === 'completed') return
+
     setAnswers((prev) => ({ ...prev, [id]: value }))
 
     await fetch('/api/inspection-answers', {
@@ -125,9 +161,12 @@ export default function InspectionDetailPage() {
   }
 
   const handleComment = (id: string, value: string) => {
-    setComments((p) => ({ ...p, [id]: value }))
+    if (status === 'completed') return
+
+    setComments((prev) => ({ ...prev, [id]: value }))
 
     clearTimeout(commentTimeouts.current[id])
+
     commentTimeouts.current[id] = setTimeout(async () => {
       await fetch('/api/inspection-answers', {
         method: 'POST',
@@ -139,20 +178,103 @@ export default function InspectionDetailPage() {
           comment: value,
         }),
       })
-    }, 500)
+    }, 600)
   }
 
-  if (loading) return <div style={{ padding: 20 }}>Učitavanje...</div>
+  const sendEmail = async () => {
+    setEmailMessage('')
+    setEmailError('')
+
+    if (!recipientEmail) {
+      const msg = '❌ Email nije poslat: unesi email primaoca.'
+      setEmailError(msg)
+      alert(msg)
+      return
+    }
+
+    setSendingEmail(true)
+
+    try {
+      const res = await fetch('/api/send-inspection-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inspection_id: inspectionId,
+          to: recipientEmail,
+          items: pdfItems,
+          photos: pdfPhotoUrls,
+          companyName: clientName,
+          employerName: clientName,
+          advisorName,
+          inspectionDate,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        const msg = `❌ Email nije poslat: ${data?.error || 'nepoznata greška.'}`
+        setEmailError(msg)
+        alert(msg)
+        return
+      }
+
+      const newHistory = [
+        recipientEmail,
+        ...emailHistory.filter((e) => e !== recipientEmail),
+      ].slice(0, 10)
+
+      setEmailHistory(newHistory)
+      localStorage.setItem('daily_email_history', JSON.stringify(newHistory))
+
+      const msg = data?.message || '✅ Email je uspešno poslat.'
+      setEmailMessage(`✅ ${msg.replace('✅', '').trim()}`)
+      alert('✅ Email je uspešno poslat.')
+    } catch (err: any) {
+      const msg = `❌ Email nije poslat: ${err?.message || 'greška.'}`
+      setEmailError(msg)
+      alert(msg)
+    } finally {
+      setSendingEmail(false)
+    }
+  }
+
+  if (loading) {
+    return <div style={{ padding: 20 }}>Učitavanje...</div>
+  }
 
   return (
-    <div style={{ padding: 20, maxWidth: 900, margin: 'auto' }}>
-      <Link href="/dashboard/poslodavci">← Nazad</Link>
+    <div style={{ padding: 20, maxWidth: 950, margin: 'auto' }}>
+      <div style={{ marginBottom: 16 }}>
+        <Link href="/dashboard/poslodavci">← Nazad na poslodavce</Link>
+      </div>
 
-      <h1 style={{ marginTop: 10 }}>Kontrola</h1>
+      <h1>Kontrolna lista</h1>
 
-      <div style={{ marginBottom: 20 }}>
-        <b>{clientName}</b> | {objectName} <br />
-        {advisorName} | {inspectionDate}
+      <div
+        style={{
+          padding: 16,
+          border: '1px solid #ddd',
+          borderRadius: 12,
+          backgroundColor: '#fafafa',
+          marginBottom: 20,
+        }}
+      >
+        <p>
+          Poslodavac: <b>{clientName || '-'}</b>
+        </p>
+        <p>
+          Objekat: <b>{objectName || '-'}</b>
+        </p>
+        <p>
+          Savetnik: <b>{advisorName || '-'}</b>
+        </p>
+        <p>
+          Datum: <b>{inspectionDate || '-'}</b>
+        </p>
+        <p>
+          Status: <b>{status === 'completed' ? 'SAČUVANA' : 'U TOKU'}</b>
+        </p>
       </div>
 
       {items.map((item, i) => {
@@ -165,26 +287,29 @@ export default function InspectionDetailPage() {
               marginBottom: 20,
               padding: 18,
               borderRadius: 14,
-              background:
+              backgroundColor:
                 ans === 'da' ? '#e6ffe6' : ans === 'ne' ? '#ffe5e5' : '#fff',
               boxShadow: '0 4px 10px rgba(0,0,0,0.08)',
+              border: '1px solid #ddd',
             }}
           >
-            <div style={{ fontSize: 18, marginBottom: 10 }}>
+            <div style={{ fontSize: 18, marginBottom: 12 }}>
               <b>{i + 1}.</b> {item.title}
             </div>
 
-            <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
               <button
                 onClick={() => handleAnswer(item.id, 'da')}
+                disabled={status === 'completed'}
                 style={{
                   flex: 1,
                   padding: 16,
                   fontSize: 18,
+                  fontWeight: 'bold',
                   borderRadius: 10,
-                  background: ans === 'da' ? '#16a34a' : '#fff',
-                  color: ans === 'da' ? '#fff' : '#000',
-                  border: '2px solid green',
+                  border: '2px solid #16a34a',
+                  backgroundColor: ans === 'da' ? '#16a34a' : '#fff',
+                  color: ans === 'da' ? '#fff' : '#111',
                 }}
               >
                 DA
@@ -192,14 +317,16 @@ export default function InspectionDetailPage() {
 
               <button
                 onClick={() => handleAnswer(item.id, 'ne')}
+                disabled={status === 'completed'}
                 style={{
                   flex: 1,
                   padding: 16,
                   fontSize: 18,
+                  fontWeight: 'bold',
                   borderRadius: 10,
-                  background: ans === 'ne' ? '#dc2626' : '#fff',
-                  color: ans === 'ne' ? '#fff' : '#000',
-                  border: '2px solid red',
+                  border: '2px solid #dc2626',
+                  backgroundColor: ans === 'ne' ? '#dc2626' : '#fff',
+                  color: ans === 'ne' ? '#fff' : '#111',
                 }}
               >
                 NE
@@ -207,81 +334,147 @@ export default function InspectionDetailPage() {
             </div>
 
             <textarea
-              placeholder="Komentar..."
               value={comments[item.id] || ''}
               onChange={(e) => handleComment(item.id, e.target.value)}
+              disabled={status === 'completed'}
+              placeholder="Komentar..."
+              rows={4}
               style={{
                 width: '100%',
-                marginTop: 10,
                 padding: 12,
                 borderRadius: 10,
+                border: '1px solid #ccc',
+                fontSize: 16,
+                boxSizing: 'border-box',
               }}
             />
           </div>
         )
       })}
 
-      {/* PDF */}
-      <PDFDownloadLink
-        document={
-          <InspectionPdf
-            items={pdfItems}
-            companyName={clientName}
-            employerName={clientName}
-            advisorName={advisorName}
-            inspectionDate={inspectionDate}
-            photos={pdfPhotoUrls}
-          />
-        }
-        fileName="kontrola.pdf"
-      >
-        {({ loading }) => (
-          <button
-            style={{
-              width: '100%',
-              padding: 18,
-              fontSize: 18,
-              marginTop: 20,
-              background: '#2563eb',
-              color: '#fff',
-              borderRadius: 12,
-              border: 'none',
-            }}
-          >
-            {loading ? 'Generisanje...' : 'Preuzmi PDF'}
-          </button>
-        )}
-      </PDFDownloadLink>
-
-      {/* slike */}
-      <h3 style={{ marginTop: 30 }}>Fotografije</h3>
-
-      <PhotoUpload inspectionId={inspectionId} onUploaded={() => location.reload()} />
-
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-        {photos.map((p) => {
-          const url = getImageUrl(p.file_path)
-
-          return (
-            <a key={p.id} href={url} target="_blank">
-              <img
-                src={url}
-                style={{
-                  width: 160,
-                  height: 120,
-                  objectFit: 'cover',
-                  borderRadius: 10,
-                }}
-              />
-            </a>
-          )
-        })}
+      <div style={{ marginTop: 24 }}>
+        <PDFDownloadLink
+          document={
+            <InspectionPdf
+              title="DNEVNA BZR KONTROLNA LISTA"
+              items={pdfItems}
+              companyName={clientName}
+              employerName={clientName}
+              advisorName={advisorName}
+              inspectionDate={inspectionDate}
+              photos={pdfPhotoUrls}
+            />
+          }
+          fileName="dnevna_kontrola.pdf"
+        >
+          {({ loading }) => (
+            <button
+              style={{
+                width: '100%',
+                padding: 16,
+                backgroundColor: '#2563eb',
+                color: 'white',
+                border: 'none',
+                borderRadius: 10,
+                fontSize: 17,
+                fontWeight: 'bold',
+              }}
+            >
+              {loading ? 'Priprema PDF...' : 'Preuzmi PDF'}
+            </button>
+          )}
+        </PDFDownloadLink>
       </div>
 
-      {/* email */}
-      <div style={{ marginTop: 30 }}>
-        <input
-          placeholder="Email"
+      <PhotoUpload inspectionId={inspectionId} onUploaded={loadPhotos} />
+
+      <div
+        style={{
+          marginTop: 24,
+          padding: 16,
+          border: '1px solid #ddd',
+          borderRadius: 12,
+        }}
+      >
+        <h3>Fotografije</h3>
+
+        <button
+          onClick={loadPhotos}
+          type="button"
+          style={{
+            padding: '10px 14px',
+            backgroundColor: '#111827',
+            color: 'white',
+            border: 'none',
+            borderRadius: 8,
+            marginBottom: 12,
+          }}
+        >
+          Osveži fotografije
+        </button>
+
+        {loadingPhotos ? (
+          <p>Učitavanje fotografija...</p>
+        ) : photos.length === 0 ? (
+          <p>Nema dodatih fotografija.</p>
+        ) : (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
+            {photos.map((photo) => {
+              const url = getImageUrl(photo.file_path || photo.file_url)
+
+              return (
+                <div key={photo.id}>
+                  <a href={url} target="_blank" rel="noreferrer">
+                    <img
+                      src={url}
+                      alt="Fotografija kontrole"
+                      style={{
+                        width: 190,
+                        height: 140,
+                        objectFit: 'cover',
+                        borderRadius: 10,
+                        border: '1px solid #ccc',
+                        display: 'block',
+                      }}
+                    />
+                  </a>
+
+                  <a
+                    href={url}
+                    download
+                    style={{
+                      display: 'inline-block',
+                      marginTop: 8,
+                      padding: '8px 12px',
+                      backgroundColor: '#2563eb',
+                      color: 'white',
+                      borderRadius: 8,
+                      textDecoration: 'none',
+                      fontWeight: 'bold',
+                      fontSize: 14,
+                    }}
+                  >
+                    Preuzmi fotografiju
+                  </a>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      <div
+        style={{
+          marginTop: 30,
+          padding: 16,
+          border: '1px solid #ddd',
+          borderRadius: 12,
+          backgroundColor: '#fafafa',
+        }}
+      >
+        <h3>Pošalji PDF mailom</h3>
+
+        <select
           value={recipientEmail}
           onChange={(e) => setRecipientEmail(e.target.value)}
           style={{
@@ -289,37 +482,80 @@ export default function InspectionDetailPage() {
             padding: 12,
             marginBottom: 10,
             borderRadius: 10,
+            border: '1px solid #ccc',
+            fontSize: 16,
+          }}
+        >
+          <option value="">Izaberi ranije korišćen email...</option>
+          {emailHistory.map((email) => (
+            <option key={email} value={email}>
+              {email}
+            </option>
+          ))}
+        </select>
+
+        <input
+          type="email"
+          value={recipientEmail}
+          onChange={(e) => setRecipientEmail(e.target.value)}
+          placeholder="Ili unesi novi email"
+          style={{
+            width: '100%',
+            padding: 12,
+            marginBottom: 10,
+            borderRadius: 10,
+            border: '1px solid #ccc',
+            fontSize: 16,
+            boxSizing: 'border-box',
           }}
         />
 
         <button
-          onClick={async () => {
-            await fetch('/api/send-inspection-email', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                inspection_id: inspectionId,
-                to: recipientEmail,
-                items: pdfItems,
-                photos: pdfPhotoUrls,
-                companyName: clientName,
-                advisorName,
-                inspectionDate,
-              }),
-            })
-
-            alert('Poslato')
-          }}
+          onClick={sendEmail}
+          disabled={sendingEmail}
           style={{
             width: '100%',
             padding: 16,
-            background: '#111827',
-            color: '#fff',
+            backgroundColor: sendingEmail ? '#6b7280' : '#111827',
+            color: 'white',
+            border: 'none',
             borderRadius: 10,
+            fontSize: 17,
+            fontWeight: 'bold',
           }}
         >
-          Pošalji PDF
+          {sendingEmail ? 'Slanje...' : 'Pošalji PDF mailom'}
         </button>
+
+        {emailMessage ? (
+          <div
+            style={{
+              marginTop: 12,
+              padding: 12,
+              backgroundColor: '#d1fae5',
+              color: '#065f46',
+              borderRadius: 10,
+              fontWeight: 'bold',
+            }}
+          >
+            {emailMessage}
+          </div>
+        ) : null}
+
+        {emailError ? (
+          <div
+            style={{
+              marginTop: 12,
+              padding: 12,
+              backgroundColor: '#fee2e2',
+              color: '#991b1b',
+              borderRadius: 10,
+              fontWeight: 'bold',
+            }}
+          >
+            {emailError}
+          </div>
+        ) : null}
       </div>
     </div>
   )
