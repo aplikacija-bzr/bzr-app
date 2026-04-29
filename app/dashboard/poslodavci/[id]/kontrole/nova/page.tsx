@@ -1,136 +1,163 @@
+'use client'
+
 import Link from 'next/link'
-import { createClient } from '@/utils/supabase/server'
+import { useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { createClient } from '@/utils/supabase/client'
 
-type Client = {
-  id: string
-  naziv: string | null
-  employer_id: string | null
-}
+export default function NovaKontrolaPage() {
+  const params = useParams()
+  const router = useRouter()
+  const supabase = createClient()
 
-type Checklist = {
-  id: string
-  name?: string | null
-  naziv?: string | null
-  title?: string | null
-}
+  const poslodavacId = params.id as string
 
-export default async function NewInspectionPage({
-  params,
-}: {
-  params: Promise<{ id: string }>
-}) {
-  const supabase = await createClient()
-  const { id: clientId } = await params
+  const [naziv, setNaziv] = useState('')
+  const [objectName, setObjectName] = useState('')
+  const [advisorName, setAdvisorName] = useState('')
+  const [inspectionDate, setInspectionDate] = useState(
+    new Date().toISOString().slice(0, 10)
+  )
 
-  const { data: client, error: clientError } = await supabase
-    .from('klijenti')
-    .select('id, naziv, employer_id')
-    .eq('id', clientId)
-    .single()
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
-  const { data: checklist, error: checklistError } = await supabase
-    .from('checklists')
-    .select('id, name')
-    .limit(1)
-    .maybeSingle()
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase
+        .from('klijenti')
+        .select('naziv')
+        .eq('id', poslodavacId)
+        .single()
 
-  const today = new Date().toISOString().slice(0, 10)
+      setNaziv(data?.naziv || '')
+    }
 
-  const checklistLabel =
-    (checklist as Checklist | null)?.name ||
-    (checklist as Checklist | null)?.naziv ||
-    (checklist as Checklist | null)?.title ||
-    'Kontrolna lista'
+    load()
+  }, [poslodavacId])
 
-  if (clientError || !client) {
-    return (
-      <div style={{ padding: 20 }}>
-        <Link href="/dashboard/poslodavci">← Nazad</Link>
-        <p style={{ color: 'red' }}>Greška pri učitavanju poslodavca.</p>
-      </div>
-    )
+  const createInspection = async () => {
+    setError('')
+
+    if (!objectName.trim()) {
+      setError('Unesi objekat.')
+      return
+    }
+
+    if (!advisorName.trim()) {
+      setError('Unesi savetnika.')
+      return
+    }
+
+    setSaving(true)
+
+    const { data, error } = await supabase
+      .from('inspections')
+      .insert({
+        client_name: naziv,
+        object_name: objectName.trim(),
+        advisor_name: advisorName.trim(),
+        inspection_date: inspectionDate,
+        status: 'draft',
+      })
+      .select('id')
+      .single()
+
+    setSaving(false)
+
+    if (error) {
+      setError(error.message)
+      return
+    }
+
+    router.push(`/dashboard/kontrole/${data.id}`)
   }
 
   return (
-    <div style={{ padding: 20, maxWidth: 600 }}>
-      <Link href={`/dashboard/poslodavci/${clientId}`}>
+    <div style={{ padding: 30, maxWidth: 650 }}>
+      <Link href={`/dashboard/poslodavci/${poslodavacId}`}>
         ← Nazad na poslodavca
       </Link>
 
       <h1>Nova kontrola</h1>
 
-      <p>
-        Poslodavac: <b>{client.naziv}</b>
-      </p>
-
-      {!client.employer_id ? (
-        <p style={{ color: 'red' }}>
-          Nema employer_id za ovog poslodavca.
+      <div style={cardStyle}>
+        <p>
+          Poslodavac: <b>{naziv || '-'}</b>
         </p>
-      ) : checklistError ? (
-        <p style={{ color: 'red' }}>
-          Greška kontrolne liste: {checklistError.message}
-        </p>
-      ) : !checklist?.id ? (
-        <p style={{ color: 'red' }}>Nema kontrolne liste.</p>
-      ) : (
-        <form action="/api/create-inspection" method="POST">
-          <input type="hidden" name="employer_id" value={client.employer_id} />
-          <input type="hidden" name="client_name" value={client.naziv || ''} />
-          <input type="hidden" name="checklist_id" value={checklist.id} />
 
-          <div style={{ marginBottom: 12 }}>
-            <label>Kontrolna lista</label>
-            <input
-              value={checklistLabel}
-              disabled
-              style={{ width: '100%', padding: 10 }}
-            />
-          </div>
+        <h3>BZR Kontrolna lista</h3>
 
-          <div style={{ marginBottom: 12 }}>
-            <label>Objekat</label>
-            <input
-              name="object_name"
-              style={{ width: '100%', padding: 10 }}
-            />
-          </div>
+        <label style={labelStyle}>Objekat</label>
+        <input
+          value={objectName}
+          onChange={(e) => setObjectName(e.target.value)}
+          placeholder="Unesi objekat"
+          style={inputStyle}
+        />
 
-          <div style={{ marginBottom: 12 }}>
-            <label>Savetnik</label>
-            <input
-              name="advisor_name"
-              style={{ width: '100%', padding: 10 }}
-            />
-          </div>
+        <label style={labelStyle}>Savetnik</label>
+        <input
+          value={advisorName}
+          onChange={(e) => setAdvisorName(e.target.value)}
+          placeholder="Unesi ime savetnika"
+          style={inputStyle}
+        />
 
-          <div style={{ marginBottom: 12 }}>
-            <label>Datum</label>
-            <input
-              type="date"
-              name="inspection_date"
-              defaultValue={today}
-              required
-              style={{ width: '100%', padding: 10 }}
-            />
-          </div>
+        <label style={labelStyle}>Datum</label>
+        <input
+          type="date"
+          value={inspectionDate}
+          onChange={(e) => setInspectionDate(e.target.value)}
+          style={inputStyle}
+        />
 
-          <button
-            type="submit"
-            style={{
-              padding: 14,
-              backgroundColor: '#16a34a',
-              color: 'white',
-              border: 'none',
-              borderRadius: 10,
-              fontSize: 16,
-              fontWeight: 'bold',
-            }}
-          >
-            Kreiraj kontrolu
-          </button>
-        </form>
-      )}
+        {error && <p style={{ color: 'red' }}>❌ {error}</p>}
+
+        <button
+          onClick={createInspection}
+          disabled={saving}
+          style={buttonStyle}
+        >
+          {saving ? 'Kreiranje...' : 'Kreiraj kontrolu'}
+        </button>
+      </div>
     </div>
   )
+}
+
+const cardStyle = {
+  marginTop: 20,
+  padding: 20,
+  border: '1px solid #ddd',
+  borderRadius: 12,
+  backgroundColor: '#fafafa',
+}
+
+const labelStyle = {
+  display: 'block',
+  marginTop: 16,
+  marginBottom: 6,
+  fontWeight: 'bold' as const,
+}
+
+const inputStyle = {
+  width: '100%',
+  padding: 12,
+  borderRadius: 10,
+  border: '1px solid #ccc',
+  fontSize: 16,
+  boxSizing: 'border-box' as const,
+}
+
+const buttonStyle = {
+  marginTop: 22,
+  padding: '16px 22px',
+  backgroundColor: '#16a34a',
+  color: 'white',
+  border: 'none',
+  borderRadius: 10,
+  fontSize: 16,
+  fontWeight: 'bold' as const,
+  cursor: 'pointer',
 }
