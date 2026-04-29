@@ -250,6 +250,9 @@ export default function InspectionDetailPage() {
       </div>
 
       <h1>Kontrolna lista</h1>
+      <div style={{ padding: 12, backgroundColor: 'yellow', marginBottom: 20 }}>
+  TEST NOVI KOD 29.04.
+</div>
 
       <div
         style={{
