@@ -15,12 +15,28 @@ const supabaseAdmin = createClient(
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: Number(process.env.SMTP_PORT),
-  secure: false,
+  secure: Number(process.env.SMTP_PORT) === 465,
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
 });
+
+async function pdfToBuffer(pdfElement: React.ReactElement) {
+  const result = await pdf(pdfElement).toBuffer();
+
+  if (Buffer.isBuffer(result)) {
+    return result;
+  }
+
+  const chunks: Uint8Array[] = [];
+
+  for await (const chunk of result as any) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+
+  return Buffer.concat(chunks);
+}
 
 async function saveEmailLog({
   inspection_id,
@@ -60,12 +76,12 @@ export async function POST(req: Request) {
     const {
       inspection_id: bodyInspectionId,
       to: bodyTo,
-      items,
-      companyName,
-      employerName,
-      advisorName,
-      inspectionDate,
-      photos,
+      items = [],
+      companyName = "",
+      employerName = "",
+      advisorName = "",
+      inspectionDate = "",
+      photos = [],
     } = body;
 
     to = bodyTo;
@@ -87,17 +103,10 @@ export async function POST(req: Request) {
       employerName: employerName || companyName,
       advisorName,
       inspectionDate,
-      photos: photos || [],
+      photos,
     });
 
-    const pdfStream = await pdf(pdfElement).toBuffer();
-    const chunks: Uint8Array[] = [];
-
-    for await (const chunk of pdfStream as any) {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-    }
-
-    const pdfBuffer = Buffer.concat(chunks);
+    const pdfBuffer = await pdfToBuffer(pdfElement);
 
     await transporter.sendMail({
       from: process.env.SMTP_FROM,

@@ -8,27 +8,6 @@ import { PDFDownloadLink } from '@react-pdf/renderer'
 import InspectionPdf from '@/app/components/InspectionPdf'
 import PhotoUpload from '@/app/components/inspection/PhotoUpload'
 
-type ChecklistItem = {
-  id: string
-  title: string
-  description?: string | null
-}
-
-type InspectionStatus = 'draft' | 'completed'
-
-type AnswerRow = {
-  checklist_item_id: string
-  answer: 'da' | 'ne' | null
-  comment: string | null
-}
-
-type PhotoRow = {
-  id: string
-  file_path?: string | null
-  file_url?: string | null
-  created_at?: string | null
-}
-
 const BUCKET = 'inspection-images'
 const SUPABASE_URL = 'https://awvrwilxbvibzyegwila.supabase.co'
 
@@ -37,52 +16,28 @@ export default function InspectionDetailPage() {
   const inspectionId = params.id as string
   const supabase = createClient()
 
-  const [items, setItems] = useState<ChecklistItem[]>([])
+  const [items, setItems] = useState<any[]>([])
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [comments, setComments] = useState<Record<string, string>>({})
-  const [status, setStatus] = useState<InspectionStatus>('draft')
+  const [status, setStatus] = useState<'draft' | 'completed'>('draft')
   const [loading, setLoading] = useState(true)
-  const [savingItemId, setSavingItemId] = useState<string | null>(null)
-  const [savingCommentId, setSavingCommentId] = useState<string | null>(null)
-  const [finishing, setFinishing] = useState(false)
-  const [sendingEmail, setSendingEmail] = useState(false)
-  const [errorMessage, setErrorMessage] = useState('')
-  const [successMessage, setSuccessMessage] = useState('')
   const [clientName, setClientName] = useState('')
-  const [clientPageId, setClientPageId] = useState('')
   const [objectName, setObjectName] = useState('')
   const [advisorName, setAdvisorName] = useState('')
   const [inspectionDate, setInspectionDate] = useState('')
+  const [photos, setPhotos] = useState<any[]>([])
   const [recipientEmail, setRecipientEmail] = useState('')
-  const [photos, setPhotos] = useState<PhotoRow[]>([])
-  const [loadingPhotos, setLoadingPhotos] = useState(false)
 
-  const commentTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+  const commentTimeouts = useRef<any>({})
 
-  const loadPhotos = async () => {
-    if (!inspectionId) return
-
-    setLoadingPhotos(true)
-
-    const { data, error } = await supabase
-      .from('inspection_photos')
-      .select('id, file_path, file_url, created_at')
-      .eq('inspection_id', inspectionId)
-      .order('created_at', { ascending: false })
-
-    if (!error) {
-      setPhotos((data || []) as PhotoRow[])
-    }
-
-    setLoadingPhotos(false)
+  const getImageUrl = (path: string) => {
+    if (!path) return ''
+    if (path.startsWith('http')) return path
+    return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`
   }
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (!inspectionId) return
-
-      setLoading(true)
-
+    const load = async () => {
       const { data: inspection } = await supabase
         .from('inspections')
         .select('*')
@@ -90,513 +45,282 @@ export default function InspectionDetailPage() {
         .single()
 
       if (inspection) {
-        setStatus(inspection.status || 'draft')
+        setStatus(inspection.status)
         setClientName(inspection.client_name || '')
         setObjectName(inspection.object_name || '')
         setAdvisorName(inspection.advisor_name || '')
 
-        if (inspection.client_name) {
-          const { data: clientRow } = await supabase
-            .from('klijenti')
-            .select('id')
-            .eq('naziv', inspection.client_name)
-            .limit(1)
-            .maybeSingle()
-
-          setClientPageId(clientRow?.id || '')
-        }
-
-        const rawDate = inspection.inspection_date || inspection.created_at
-
-        if (rawDate) {
-          const date = new Date(rawDate)
-          setInspectionDate(
-            `${String(date.getDate()).padStart(2, '0')}.${String(
-              date.getMonth() + 1
-            ).padStart(2, '0')}.${date.getFullYear()}`
-          )
-        }
+        const d = new Date(inspection.inspection_date || inspection.created_at)
+        setInspectionDate(
+          `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`
+        )
       }
 
       const { data: itemsData } = await supabase
         .from('checklist_items')
-        .select('id, title, description')
-        .order('sort_order', { ascending: true })
+        .select('*')
+        .order('sort_order')
 
       const { data: answersData } = await supabase
         .from('inspection_answers')
-        .select('checklist_item_id, answer, comment')
+        .select('*')
         .eq('inspection_id', inspectionId)
 
-      const answersMap: Record<string, string> = {}
-      const commentsMap: Record<string, string> = {}
+      const { data: photosData } = await supabase
+        .from('inspection_photos')
+        .select('*')
+        .eq('inspection_id', inspectionId)
 
-      ;(answersData as AnswerRow[] | null)?.forEach((row) => {
-        if (row.answer) {
-          answersMap[row.checklist_item_id] = row.answer
-        }
+      const a: any = {}
+      const c: any = {}
 
-        commentsMap[row.checklist_item_id] = row.comment || ''
+      answersData?.forEach((row: any) => {
+        if (row.answer) a[row.checklist_item_id] = row.answer
+        c[row.checklist_item_id] = row.comment || ''
       })
 
-      setItems((itemsData || []) as ChecklistItem[])
-      setAnswers(answersMap)
-      setComments(commentsMap)
-
-      await loadPhotos()
+      setItems(itemsData || [])
+      setAnswers(a)
+      setComments(c)
+      setPhotos(photosData || [])
       setLoading(false)
     }
 
-    fetchData()
-
-    return () => {
-      Object.values(commentTimeouts.current).forEach(clearTimeout)
-    }
+    load()
   }, [inspectionId])
 
-  const unansweredCount = useMemo(() => {
-    return items.filter((item) => !answers[item.id]).length
-  }, [items, answers])
+  const pdfPhotoUrls = useMemo(
+    () => photos.map((p) => getImageUrl(p.file_path)).filter(Boolean),
+    [photos]
+  )
 
-  const allAnswered = items.length > 0 && unansweredCount === 0
+  const pdfItems = useMemo(
+    () =>
+      items.map((item) => ({
+        question: item.title,
+        answer:
+          answers[item.id] === 'da'
+            ? 'DA'
+            : answers[item.id] === 'ne'
+            ? 'NE'
+            : '',
+        comment: comments[item.id] || '',
+      })),
+    [items, answers, comments]
+  )
 
-  const pdfPhotoUrls = useMemo(() => {
-    return photos
-      .map((photo) =>
-        photo.file_path
-          ? `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${photo.file_path}`
-          : ''
-      )
-      .filter(Boolean)
-  }, [photos])
-
-  const pdfItems = useMemo(() => {
-    return items.map((item) => ({
-      question: item.title || 'Pitanje',
-      answer: answers[item.id] === 'da' ? 'DA' : answers[item.id] === 'ne' ? 'NE' : '',
-      comment: comments[item.id] || '',
-    }))
-  }, [items, answers, comments])
-
-  const handleAnswer = async (itemId: string, value: 'da' | 'ne') => {
-    if (status === 'completed') return
-
-    setSavingItemId(itemId)
-    setErrorMessage('')
-    setSuccessMessage('')
-
-    const currentComment = comments[itemId] || ''
-    setAnswers((prev) => ({ ...prev, [itemId]: value }))
-
-    const res = await fetch('/api/inspection-answers', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        inspection_id: inspectionId,
-        checklist_item_id: itemId,
-        answer: value,
-        comment: currentComment,
-      }),
-    })
-
-    const data = await res.json()
-
-    if (!res.ok) {
-      setErrorMessage(data?.error || 'Greška pri snimanju odgovora.')
-    }
-
-    setSavingItemId(null)
-  }
-
-  const saveComment = async (itemId: string, value: string) => {
-    if (status === 'completed') return
-
-    setSavingCommentId(itemId)
+  const handleAnswer = async (id: string, value: 'da' | 'ne') => {
+    setAnswers((prev) => ({ ...prev, [id]: value }))
 
     await fetch('/api/inspection-answers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         inspection_id: inspectionId,
-        checklist_item_id: itemId,
-        answer: answers[itemId] || undefined,
-        comment: value,
+        checklist_item_id: id,
+        answer: value,
+        comment: comments[id] || '',
       }),
     })
-
-    setSavingCommentId(null)
   }
 
-  const handleCommentChange = (itemId: string, value: string) => {
-    if (status === 'completed') return
+  const handleComment = (id: string, value: string) => {
+    setComments((p) => ({ ...p, [id]: value }))
 
-    setComments((prev) => ({ ...prev, [itemId]: value }))
-
-    if (commentTimeouts.current[itemId]) {
-      clearTimeout(commentTimeouts.current[itemId])
-    }
-
-    commentTimeouts.current[itemId] = setTimeout(() => {
-      saveComment(itemId, value)
-    }, 700)
+    clearTimeout(commentTimeouts.current[id])
+    commentTimeouts.current[id] = setTimeout(async () => {
+      await fetch('/api/inspection-answers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inspection_id: inspectionId,
+          checklist_item_id: id,
+          answer: answers[id],
+          comment: value,
+        }),
+      })
+    }, 500)
   }
 
-  const saveInspection = async () => {
-    if (!allAnswered) {
-      setErrorMessage(`Nije moguće snimiti kontrolu. Neodgovorena pitanja: ${unansweredCount}.`)
-      return
-    }
-
-    setFinishing(true)
-
-    const res = await fetch('/api/inspection-complete', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ inspection_id: inspectionId }),
-    })
-
-    const data = await res.json()
-
-    if (!res.ok) {
-      setErrorMessage(data?.error || 'Greška pri snimanju kontrole.')
-    } else {
-      setStatus('completed')
-      setSuccessMessage('Kontrola je uspešno sačuvana.')
-    }
-
-    setFinishing(false)
-  }
-
-  const sendInspectionEmail = async () => {
-    if (!recipientEmail) {
-      setErrorMessage('Unesi email primaoca.')
-      return
-    }
-
-    setSendingEmail(true)
-    setErrorMessage('')
-    setSuccessMessage('')
-
-    const res = await fetch('/api/send-inspection-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        inspection_id: inspectionId,
-        to: recipientEmail,
-        items: pdfItems,
-        photos: pdfPhotoUrls,
-        companyName: clientName,
-        employerName: clientName,
-        advisorName,
-        inspectionDate,
-      }),
-    })
-
-    const data = await res.json()
-
-    if (!res.ok) {
-      setErrorMessage(data?.error || 'Greška pri slanju emaila.')
-    } else {
-      setSuccessMessage(data?.message || 'Email je uspešno poslat.')
-    }
-
-    setSendingEmail(false)
-  }
-
-  if (loading) {
-    return <div style={{ padding: 20 }}>Učitavanje...</div>
-  }
+  if (loading) return <div style={{ padding: 20 }}>Učitavanje...</div>
 
   return (
-    <>
-      <div style={{ padding: 20, paddingBottom: status === 'draft' ? 120 : 20, maxWidth: 1000 }}>
-        <div style={{ marginBottom: 16, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          <Link href="/dashboard/poslodavci">← Nazad na poslodavce</Link>
+    <div style={{ padding: 20, maxWidth: 900, margin: 'auto' }}>
+      <Link href="/dashboard/poslodavci">← Nazad</Link>
 
-          {clientPageId ? (
-            <Link href={`/dashboard/poslodavci/${clientPageId}`}>
-              ← Nazad na kontrole
-            </Link>
-          ) : null}
-        </div>
+      <h1 style={{ marginTop: 10 }}>Kontrola</h1>
 
-        <h1>Kontrolna lista</h1>
-
-        {clientName ? <p>Poslodavac: <b>{clientName}</b></p> : null}
-        {objectName ? <p>Objekat: <b>{objectName}</b></p> : null}
-        {advisorName ? <p>Savetnik: <b>{advisorName}</b></p> : null}
-        {inspectionDate ? <p>Datum: <b>{inspectionDate}</b></p> : null}
-
-        <p>Status: <b>{status === 'completed' ? 'SAČUVANA' : 'U TOKU'}</b></p>
-
-        {errorMessage ? (
-          <div style={{ marginBottom: 16, padding: 14, backgroundColor: '#ffe5e5', color: '#900', borderRadius: 10 }}>
-            {errorMessage}
-          </div>
-        ) : null}
-
-        {successMessage ? (
-          <div style={{ marginBottom: 16, padding: 14, backgroundColor: '#d1fae5', color: '#065f46', borderRadius: 10 }}>
-            ✅ {successMessage}
-          </div>
-        ) : null}
-
-        {items.map((item, index) => {
-          const currentAnswer = answers[item.id]
-          const currentComment = comments[item.id] || ''
-
-          return (
-            <div
-              key={item.id}
-              style={{
-                marginBottom: 20,
-                padding: 20,
-                border: '1px solid #ddd',
-                borderRadius: 12,
-                backgroundColor:
-                  currentAnswer === 'ne'
-                    ? '#ffe5e5'
-                    : currentAnswer === 'da'
-                      ? '#e6ffe6'
-                      : '#fff',
-              }}
-            >
-              <p style={{ fontSize: 20, marginBottom: 12 }}>
-                <b>{index + 1}.</b> {item.title}
-              </p>
-
-              <div style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
-                <button
-                  onClick={() => handleAnswer(item.id, 'da')}
-                  disabled={status === 'completed' || savingItemId === item.id}
-                  style={{
-                    flex: 1,
-                    padding: 18,
-                    fontSize: 20,
-                    fontWeight: 'bold',
-                    borderRadius: 12,
-                    backgroundColor: currentAnswer === 'da' ? '#16a34a' : '#fff',
-                    color: currentAnswer === 'da' ? '#fff' : '#111',
-                    border: '2px solid #16a34a',
-                  }}
-                >
-                  DA
-                </button>
-
-                <button
-                  onClick={() => handleAnswer(item.id, 'ne')}
-                  disabled={status === 'completed' || savingItemId === item.id}
-                  style={{
-                    flex: 1,
-                    padding: 18,
-                    fontSize: 20,
-                    fontWeight: 'bold',
-                    borderRadius: 12,
-                    backgroundColor: currentAnswer === 'ne' ? '#dc2626' : '#fff',
-                    color: currentAnswer === 'ne' ? '#fff' : '#111',
-                    border: '2px solid #dc2626',
-                  }}
-                >
-                  NE
-                </button>
-              </div>
-
-              <textarea
-                value={currentComment}
-                disabled={status === 'completed'}
-                onChange={(e) => handleCommentChange(item.id, e.target.value)}
-                placeholder="Komentar..."
-                rows={4}
-                style={{
-                  width: '100%',
-                  padding: 14,
-                  fontSize: 16,
-                  borderRadius: 10,
-                  border: '1px solid #ccc',
-                  boxSizing: 'border-box',
-                }}
-              />
-
-              {savingCommentId === item.id ? (
-                <div style={{ marginTop: 6, fontSize: 14 }}>Snimanje komentara...</div>
-              ) : null}
-            </div>
-          )
-        })}
-
-        <div style={{ marginTop: 20 }}>
-          <PDFDownloadLink
-            document={
-              <InspectionPdf
-                title="DNEVNA BZR KONTROLNA LISTA"
-                items={pdfItems}
-                companyName={clientName}
-                employerName={clientName}
-                advisorName={advisorName}
-                inspectionDate={inspectionDate}
-                photos={pdfPhotoUrls}
-              />
-            }
-            fileName="kontrolna_lista.pdf"
-          >
-            {({ loading }) => (
-              <button
-                style={{
-                  padding: '14px 22px',
-                  backgroundColor: '#2563eb',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: 10,
-                  fontSize: 16,
-                  fontWeight: 'bold',
-                }}
-              >
-                {loading ? 'Priprema PDF...' : 'Preuzmi PDF'}
-              </button>
-            )}
-          </PDFDownloadLink>
-        </div>
-
-        <PhotoUpload inspectionId={inspectionId} onUploaded={loadPhotos} />
-
-        <div style={{ marginTop: 20, padding: 16, border: '1px solid #ddd', borderRadius: 10 }}>
-          <h3>Fotografije</h3>
-
-          <button
-            onClick={loadPhotos}
-            type="button"
-            style={{
-              padding: '12px 16px',
-              backgroundColor: '#111827',
-              color: 'white',
-              border: 'none',
-              borderRadius: 10,
-              marginBottom: 12,
-            }}
-          >
-            Osveži fotografije
-          </button>
-
-          {loadingPhotos ? (
-            <p>Učitavanje fotografija...</p>
-          ) : photos.length === 0 ? (
-            <p>Nema dodatih fotografija.</p>
-          ) : (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
-              {photos.map((photo) => {
-                const imageUrl = photo.file_path
-                  ? `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${photo.file_path}`
-                  : ''
-
-                return (
-                  <div key={photo.id}>
-                    <a href={imageUrl} target="_blank" rel="noreferrer">
-                      <img
-                        src={imageUrl}
-                        alt="Fotografija kontrole"
-                        style={{
-                          width: 220,
-                          height: 160,
-                          objectFit: 'cover',
-                          borderRadius: 10,
-                          border: '1px solid #ccc',
-                          display: 'block',
-                        }}
-                      />
-                    </a>
-
-                    <a
-                      href={imageUrl}
-                      download
-                      style={{
-                        display: 'inline-block',
-                        marginTop: 8,
-                        padding: '8px 12px',
-                        backgroundColor: '#2563eb',
-                        color: 'white',
-                        borderRadius: 8,
-                        fontSize: 14,
-                        fontWeight: 'bold',
-                        textDecoration: 'none',
-                      }}
-                    >
-                      Preuzmi fotografiju
-                    </a>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        <div style={{ marginTop: 24, padding: 16, border: '1px solid #ddd', borderRadius: 10 }}>
-          <h3>Pošalji PDF mailom</h3>
-
-          <input
-            type="email"
-            value={recipientEmail}
-            onChange={(e) => setRecipientEmail(e.target.value)}
-            placeholder="Email primaoca"
-            style={{
-              width: '100%',
-              maxWidth: 420,
-              padding: 12,
-              borderRadius: 10,
-              border: '1px solid #ccc',
-              marginBottom: 12,
-              fontSize: 16,
-            }}
-          />
-
-          <button
-            onClick={sendInspectionEmail}
-            disabled={sendingEmail}
-            style={{
-              padding: '14px 22px',
-              backgroundColor: '#111827',
-              color: 'white',
-              border: 'none',
-              borderRadius: 10,
-              fontSize: 16,
-              fontWeight: 'bold',
-            }}
-          >
-            {sendingEmail ? 'Slanje...' : 'Pošalji PDF mailom'}
-          </button>
-        </div>
+      <div style={{ marginBottom: 20 }}>
+        <b>{clientName}</b> | {objectName} <br />
+        {advisorName} | {inspectionDate}
       </div>
 
-      {status === 'draft' ? (
-        <div
-          style={{
-            position: 'fixed',
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'white',
-            borderTop: '1px solid #ddd',
-            padding: 14,
-            boxShadow: '0 -4px 12px rgba(0,0,0,0.12)',
-          }}
-        >
+      {items.map((item, i) => {
+        const ans = answers[item.id]
+
+        return (
+          <div
+            key={item.id}
+            style={{
+              marginBottom: 20,
+              padding: 18,
+              borderRadius: 14,
+              background:
+                ans === 'da' ? '#e6ffe6' : ans === 'ne' ? '#ffe5e5' : '#fff',
+              boxShadow: '0 4px 10px rgba(0,0,0,0.08)',
+            }}
+          >
+            <div style={{ fontSize: 18, marginBottom: 10 }}>
+              <b>{i + 1}.</b> {item.title}
+            </div>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => handleAnswer(item.id, 'da')}
+                style={{
+                  flex: 1,
+                  padding: 16,
+                  fontSize: 18,
+                  borderRadius: 10,
+                  background: ans === 'da' ? '#16a34a' : '#fff',
+                  color: ans === 'da' ? '#fff' : '#000',
+                  border: '2px solid green',
+                }}
+              >
+                DA
+              </button>
+
+              <button
+                onClick={() => handleAnswer(item.id, 'ne')}
+                style={{
+                  flex: 1,
+                  padding: 16,
+                  fontSize: 18,
+                  borderRadius: 10,
+                  background: ans === 'ne' ? '#dc2626' : '#fff',
+                  color: ans === 'ne' ? '#fff' : '#000',
+                  border: '2px solid red',
+                }}
+              >
+                NE
+              </button>
+            </div>
+
+            <textarea
+              placeholder="Komentar..."
+              value={comments[item.id] || ''}
+              onChange={(e) => handleComment(item.id, e.target.value)}
+              style={{
+                width: '100%',
+                marginTop: 10,
+                padding: 12,
+                borderRadius: 10,
+              }}
+            />
+          </div>
+        )
+      })}
+
+      {/* PDF */}
+      <PDFDownloadLink
+        document={
+          <InspectionPdf
+            items={pdfItems}
+            companyName={clientName}
+            employerName={clientName}
+            advisorName={advisorName}
+            inspectionDate={inspectionDate}
+            photos={pdfPhotoUrls}
+          />
+        }
+        fileName="kontrola.pdf"
+      >
+        {({ loading }) => (
           <button
-            onClick={saveInspection}
-            disabled={!allAnswered || finishing}
             style={{
               width: '100%',
               padding: 18,
-              fontSize: 20,
-              fontWeight: 'bold',
-              backgroundColor: !allAnswered || finishing ? '#999' : '#16a34a',
-              color: 'white',
+              fontSize: 18,
+              marginTop: 20,
+              background: '#2563eb',
+              color: '#fff',
+              borderRadius: 12,
               border: 'none',
-              borderRadius: 14,
             }}
           >
-            {finishing ? 'Snimanje...' : 'Snimi kontrolu'}
+            {loading ? 'Generisanje...' : 'Preuzmi PDF'}
           </button>
-        </div>
-      ) : null}
-    </>
+        )}
+      </PDFDownloadLink>
+
+      {/* slike */}
+      <h3 style={{ marginTop: 30 }}>Fotografije</h3>
+
+      <PhotoUpload inspectionId={inspectionId} onUploaded={() => location.reload()} />
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+        {photos.map((p) => {
+          const url = getImageUrl(p.file_path)
+
+          return (
+            <a key={p.id} href={url} target="_blank">
+              <img
+                src={url}
+                style={{
+                  width: 160,
+                  height: 120,
+                  objectFit: 'cover',
+                  borderRadius: 10,
+                }}
+              />
+            </a>
+          )
+        })}
+      </div>
+
+      {/* email */}
+      <div style={{ marginTop: 30 }}>
+        <input
+          placeholder="Email"
+          value={recipientEmail}
+          onChange={(e) => setRecipientEmail(e.target.value)}
+          style={{
+            width: '100%',
+            padding: 12,
+            marginBottom: 10,
+            borderRadius: 10,
+          }}
+        />
+
+        <button
+          onClick={async () => {
+            await fetch('/api/send-inspection-email', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                inspection_id: inspectionId,
+                to: recipientEmail,
+                items: pdfItems,
+                photos: pdfPhotoUrls,
+                companyName: clientName,
+                advisorName,
+                inspectionDate,
+              }),
+            })
+
+            alert('Poslato')
+          }}
+          style={{
+            width: '100%',
+            padding: 16,
+            background: '#111827',
+            color: '#fff',
+            borderRadius: 10,
+          }}
+        >
+          Pošalji PDF
+        </button>
+      </div>
+    </div>
   )
 }

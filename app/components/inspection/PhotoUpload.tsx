@@ -34,6 +34,7 @@ export default function PhotoUpload({
     const filePath = `${inspectionId}/${Date.now()}-${safeName}`
 
     try {
+      // 1. upload u storage
       const { error: uploadError } = await supabase.storage
         .from(BUCKET)
         .upload(filePath, file, {
@@ -42,35 +43,30 @@ export default function PhotoUpload({
         })
 
       if (uploadError) {
-        setMessage(`Greška pri uploadu slike: ${uploadError.message}`)
+        setMessage(`Greška pri uploadu: ${uploadError.message}`)
         return
       }
 
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from(BUCKET).getPublicUrl(filePath)
-
+      // 2. upis u bazu (SAMO file_path)
       const { error: dbError } = await supabase
         .from('inspection_photos')
         .insert({
           inspection_id: inspectionId,
           file_path: filePath,
-          file_url: publicUrl,
         })
 
       if (dbError) {
-        setMessage(`Greška pri upisu u bazu: ${dbError.message}`)
+        console.error(dbError)
+        setMessage(`Greška u bazi: ${dbError.message}`)
         return
       }
 
       setMessage('✅ Slika uspešno dodata.')
       e.target.value = ''
 
-      if (onUploaded) {
-        onUploaded()
-      }
-    } catch (error: any) {
-      setMessage(error?.message || 'Neočekivana greška.')
+      onUploaded?.()
+    } catch (err: any) {
+      setMessage(err?.message || 'Neočekivana greška.')
     } finally {
       setUploading(false)
     }
@@ -86,7 +82,7 @@ export default function PhotoUpload({
         backgroundColor: '#fafafa',
       }}
     >
-      <h3 style={{ marginTop: 0 }}>Fotografije</h3>
+      <h3>Fotografije</h3>
 
       <input
         ref={fileInputRef}
@@ -98,24 +94,21 @@ export default function PhotoUpload({
       />
 
       <button
-        type="button"
         onClick={() => fileInputRef.current?.click()}
         disabled={uploading}
         style={{
-          padding: '12px 18px',
-          backgroundColor: '#2563eb',
-          color: 'white',
-          border: 'none',
+          padding: 14,
+          background: '#2563eb',
+          color: '#fff',
           borderRadius: 10,
-          fontSize: 16,
+          border: 'none',
           fontWeight: 'bold',
-          cursor: uploading ? 'not-allowed' : 'pointer',
         }}
       >
-        {uploading ? 'Upload u toku...' : '📷 Dodaj fotografiju'}
+        {uploading ? 'Upload...' : '📷 Dodaj fotografiju'}
       </button>
 
-      {message ? <p style={{ marginTop: 12 }}>{message}</p> : null}
+      {message && <p style={{ marginTop: 10 }}>{message}</p>}
     </div>
   )
 }

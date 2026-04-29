@@ -25,6 +25,10 @@ type PhotoRow = {
   file_path: string;
 };
 
+const SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  "https://YOUR_PROJECT.supabase.co"; // fallback OBAVEZNO zameni ako treba
+
 function formatMonthLabel(month: string) {
   const [year, m] = month.split("-");
   return `${m}.${year}`;
@@ -37,6 +41,14 @@ function formatDateSr(value: string | null | undefined) {
 
 function getInspectionDate(row: InspectionRow) {
   return row.inspection_date || row.created_at || null;
+}
+
+function buildPublicUrl(path: string) {
+  if (!path) return "";
+
+  if (path.startsWith("http")) return path;
+
+  return `${SUPABASE_URL}/storage/v1/object/public/inspection-images/${path}`;
 }
 
 async function buildMonthlyPdf({
@@ -52,6 +64,7 @@ async function buildMonthlyPdf({
 
   const [year, m] = month.split("-");
   const startDate = `${year}-${m}-01`;
+
   const endDate = new Date(Number(year), Number(m), 1)
     .toISOString()
     .slice(0, 10);
@@ -99,7 +112,7 @@ async function buildMonthlyPdf({
   const photosMap = new Map<string, string[]>();
 
   photos.forEach((p) => {
-    const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/inspection-images/${p.file_path}`;
+    const publicUrl = buildPublicUrl(p.file_path);
 
     if (!photosMap.has(p.inspection_id)) {
       photosMap.set(p.inspection_id, []);
@@ -122,6 +135,7 @@ async function buildMonthlyPdf({
     inspections.length > 0
       ? inspections.map((inspection, index) => {
           const inspectionAnswers = answersMap.get(inspection.id) || [];
+
           const negativeAnswers = inspectionAnswers.filter(
             (a) => a.answer?.toLowerCase() === "ne"
           );
@@ -130,7 +144,9 @@ async function buildMonthlyPdf({
             question: `${index + 1}. ${
               inspection.object_name || inspection.client_name || "-"
             } | ${formatDateSr(getInspectionDate(inspection))}`,
+
             answer: negativeAnswers.length > 0 ? "NE" : "DA",
+
             comment:
               negativeAnswers.length > 0
                 ? negativeAnswers
@@ -138,6 +154,7 @@ async function buildMonthlyPdf({
                     .filter(Boolean)
                     .join("; ")
                 : "Kontrola izvršena. Nema evidentiranih nepravilnosti.",
+
             photos: photosMap.get(inspection.id) || [],
           };
         })
