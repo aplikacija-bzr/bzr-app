@@ -3,6 +3,10 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
+import JSZip from 'jszip'
+import { saveAs } from 'file-saver'
+import { pdf } from '@react-pdf/renderer'
+import InspectionPdf from '@/app/components/InspectionPdf'
 
 type Inspection = {
   id: string
@@ -73,6 +77,106 @@ export default function ArhivaPage() {
     }
   }
 
+  const downloadZip = async () => {
+    setError('')
+    setMessage('Priprema ZIP fajla...')
+
+    const start = `${month}-01`
+    const d = new Date(start)
+    const nextMonth = new Date(d.getFullYear(), d.getMonth() + 1, 1)
+    const end = nextMonth.toISOString().slice(0, 10)
+
+    const { data: inspectionsData, error: inspectionsError } = await supabase
+      .from('inspections')
+      .select('*')
+      .gte('inspection_date', start)
+      .lt('inspection_date', end)
+      .order('inspection_date', { ascending: true })
+
+    if (inspectionsError) {
+      setError(inspectionsError.message)
+      setMessage('')
+      return
+    }
+
+    if (!inspectionsData || inspectionsData.length === 0) {
+      setError('Nema podataka za ZIP.')
+      setMessage('')
+      return
+    }
+
+    const zip = new JSZip()
+
+    for (const ins of inspectionsData) {
+      const safeClient = cleanFileName(ins.client_name || 'poslodavac')
+      const safeDate = ins.inspection_date || 'bez-datuma'
+      const folderName = `${safeClient}-${safeDate}`
+      const folder = zip.folder(folderName)
+
+      const { data: answers } = await supabase
+        .from('inspection_answers')
+        .select('answer, comment, checklist_items(title)')
+        .eq('inspection_id', ins.id)
+
+      const pdfItems =
+        answers?.map((row: any) => ({
+          question: row.checklist_items?.title || 'Pitanje',
+          answer:
+            row.answer === 'da'
+              ? 'DA'
+              : row.answer === 'ne'
+                ? 'NE'
+                : '',
+          comment: row.comment || '',
+        })) || []
+
+      const inspectionDate = ins.inspection_date
+        ? formatDate(ins.inspection_date)
+        : ''
+
+      const pdfBlob = await pdf(
+        <InspectionPdf
+          title="DNEVNA BZR KONTROLNA LISTA"
+          items={pdfItems}
+          companyName={ins.client_name || ''}
+          employerName={ins.client_name || ''}
+          advisorName={ins.advisor_name || ''}
+          inspectionDate={inspectionDate}
+          photos={[]}
+        />
+      ).toBlob()
+
+      folder?.file('dnevna_kontrola.pdf', pdfBlob)
+
+      const { data: photos } = await supabase
+        .from('inspection_photos')
+        .select('*')
+        .eq('inspection_id', ins.id)
+
+      if (photos) {
+        for (const photo of photos) {
+          const url =
+            photo.file_url ||
+            `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/inspection-images/${photo.file_path}`
+
+          try {
+            const res = await fetch(url)
+            const blob = await res.blob()
+            const name = photo.file_path?.split('/').pop() || 'slika.jpg'
+            folder?.file(name, blob)
+          } catch (err) {
+            console.log('Greška slika:', err)
+          }
+        }
+      }
+    }
+
+    const content = await zip.generateAsync({ type: 'blob' })
+    saveAs(content, `arhiva-${month}.zip`)
+
+    setMessage('ZIP je spreman.')
+  }
+
   return (
     <div style={{ padding: 30, maxWidth: 1000, margin: 'auto' }}>
       <h1>Arhiva kontrola</h1>
@@ -115,9 +219,24 @@ export default function ArhivaPage() {
             border: 'none',
             borderRadius: 8,
             fontWeight: 'bold',
+            marginRight: 10,
           }}
         >
           Zaključi mesec
+        </button>
+
+        <button
+          onClick={downloadZip}
+          style={{
+            padding: '12px 18px',
+            backgroundColor: '#16a34a',
+            color: 'white',
+            border: 'none',
+            borderRadius: 8,
+            fontWeight: 'bold',
+          }}
+        >
+          Preuzmi ZIP
         </button>
       </div>
 
@@ -184,6 +303,13 @@ export default function ArhivaPage() {
 function formatDate(date: string) {
   const [year, month, day] = date.split('-')
   return `${day}.${month}.${year}.`
+}
+
+function cleanFileName(value: string) {
+  return value
+    .replace(/[\\/:*?"<>|]/g, '-')
+    .replace(/\s+/g, '-')
+    .trim()
 }
 
 const thStyle = {
