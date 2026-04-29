@@ -1,147 +1,97 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
 
-export default function NoviPoslodavacPage() {
+export default function EmployersPage() {
   const supabase = createClient()
-  const router = useRouter()
 
-  const [naziv, setNaziv] = useState('')
-  const [email, setEmail] = useState('')
-  const [contactPerson, setContactPerson] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [employers, setEmployers] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!naziv.trim()) {
-      alert('Unesite naziv poslodavca')
-      return
-    }
-
-    setLoading(true)
-
-    try {
-      const { data: existingClient } = await supabase
-        .from('klijenti')
-        .select('id')
-        .ilike('naziv', naziv.trim())
-        .maybeSingle()
-
-      if (existingClient) {
-        alert('Poslodavac sa ovim nazivom već postoji.')
-        setLoading(false)
-        return
-      }
-
-      const { data: clientData, error: clientError } = await supabase
-        .from('klijenti')
-        .insert([
-          {
-            naziv: naziv.trim(),
-            aktivan: true,
-          },
-        ])
-        .select()
-        .single()
-
-      if (clientError) throw clientError
-
-      const { error: employerError } = await supabase
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase
         .from('employers')
-        .insert([
-          {
-            name: naziv.trim(),
-            email: email.trim() || null,
-            contact_person: contactPerson.trim() || null,
-            client_id: clientData.id,
-          },
-        ])
+        .select('*')
+        .order('created_at', { ascending: false })
 
-      if (employerError) throw employerError
-
-      alert('Poslodavac uspešno dodat')
-      router.push('/dashboard/poslodavci')
-      router.refresh()
-    } catch (err: any) {
-      console.error(err)
-      alert(err?.message || 'Greška prilikom unosa')
-    } finally {
+      setEmployers(data || [])
       setLoading(false)
     }
+
+    load()
+  }, [])
+
+  if (loading) {
+    return <div style={{ padding: 20 }}>Učitavanje...</div>
   }
 
   return (
-    <div style={{ padding: 20, maxWidth: 500 }}>
-      <h1>Novi poslodavac</h1>
+    <div style={{ padding: 20, maxWidth: 900, margin: 'auto' }}>
+      
+      <h1 style={{ marginBottom: 20 }}>Poslodavci</h1>
 
-      <form onSubmit={handleSubmit} style={{ marginTop: 20 }}>
-        <div style={{ marginBottom: 16 }}>
-          <label>Naziv poslodavca</label>
-          <input
-            type="text"
-            value={naziv}
-            onChange={(e) => setNaziv(e.target.value)}
+      {/* 🔥 DUGME */}
+      <div style={{ marginBottom: 20 }}>
+        <Link href="/dashboard/poslodavci/novi">
+          <button
             style={{
-              width: '100%',
-              padding: 10,
-              borderRadius: 8,
-              border: '1px solid #ccc',
-              marginTop: 6,
+              padding: '14px 20px',
+              backgroundColor: '#16a34a',
+              color: 'white',
+              border: 'none',
+              borderRadius: 10,
+              fontSize: 16,
+              fontWeight: 'bold',
+              cursor: 'pointer',
             }}
-          />
-        </div>
+          >
+            ➕ Dodaj poslodavca
+          </button>
+        </Link>
+      </div>
 
-        <div style={{ marginBottom: 16 }}>
-          <label>Email</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            style={{
-              width: '100%',
-              padding: 10,
-              borderRadius: 8,
-              border: '1px solid #ccc',
-              marginTop: 6,
-            }}
-          />
-        </div>
+      {employers.length === 0 ? (
+        <p>Nema unetih poslodavaca.</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {employers.map((emp) => (
+            <Link
+              key={emp.id}
+              href={`/dashboard/poslodavci/${emp.id}`}
+              style={{ textDecoration: 'none' }}
+            >
+              <div
+                style={{
+                  padding: 16,
+                  border: '1px solid #ddd',
+                  borderRadius: 12,
+                  backgroundColor: '#fff',
+                  boxShadow: '0 4px 10px rgba(0,0,0,0.05)',
+                }}
+              >
+                <div style={{ fontSize: 18, fontWeight: 'bold' }}>
+                  {emp.name || 'Naziv nije unet'}
+                </div>
 
-        <div style={{ marginBottom: 16 }}>
-          <label>Kontakt lice</label>
-          <input
-            type="text"
-            value={contactPerson}
-            onChange={(e) => setContactPerson(e.target.value)}
-            style={{
-              width: '100%',
-              padding: 10,
-              borderRadius: 8,
-              border: '1px solid #ccc',
-              marginTop: 6,
-            }}
-          />
-        </div>
+                {emp.address && (
+                  <div style={{ marginTop: 6, color: '#555' }}>
+                    📍 {emp.address}
+                  </div>
+                )}
 
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            padding: '10px 16px',
-            backgroundColor: '#0f766e',
-            color: '#fff',
-            borderRadius: 8,
-            border: 'none',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-          }}
-        >
-          {loading ? 'Snimam...' : 'Sačuvaj'}
-        </button>
-      </form>
+                {emp.email && (
+                  <div style={{ marginTop: 4, color: '#555' }}>
+                    📧 {emp.email}
+                  </div>
+                )}
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
