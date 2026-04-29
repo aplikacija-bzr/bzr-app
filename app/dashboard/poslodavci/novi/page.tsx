@@ -14,7 +14,6 @@ export default function NoviPoslodavacPage() {
   const [message, setMessage] = useState('')
 
   const save = async (e: React.FormEvent) => {
-    alert('Klik na Sačuvaj radi')
     e.preventDefault()
     setMessage('')
 
@@ -25,23 +24,30 @@ export default function NoviPoslodavacPage() {
 
     setSaving(true)
 
-    const { data, error } = await supabase
-      .from('klijenti')
+    const { data: employer, error: employerError } = await supabase
+      .from('employers')
       .insert({
-        naziv: naziv.trim(),
-        aktivan: true,
+        name: naziv.trim(),
       })
-      .select()
+      .select('id')
+      .single()
 
-    setSaving(false)
-
-    if (error) {
-      setMessage(`❌ Greška: ${error.message}`)
+    if (employerError || !employer) {
+      setSaving(false)
+      setMessage(`❌ Greška employers: ${employerError?.message}`)
       return
     }
 
-    if (!data || data.length === 0) {
-      setMessage('❌ Nije upisano u bazu.')
+    const { error: clientError } = await supabase.from('klijenti').insert({
+      naziv: naziv.trim(),
+      aktivan: true,
+      employer_id: employer.id,
+    })
+
+    setSaving(false)
+
+    if (clientError) {
+      setMessage(`❌ Greška klijenti: ${clientError.message}`)
       return
     }
 
