@@ -2,33 +2,23 @@ import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
 import type { CSSProperties } from 'react'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
 export default async function PoslodavciPage() {
-  const { data: clients } = await supabase
+  const { data: clients, error } = await supabase
     .from('klijenti')
     .select('*')
     .order('naziv', { ascending: true })
 
   return (
     <div style={{ padding: 30 }}>
-      {/* 🔙 POVRATAK */}
-      <Link
-        href="/dashboard"
-        style={{
-          display: 'inline-block',
-          marginBottom: 16,
-          padding: '10px 14px',
-          backgroundColor: '#111827',
-          color: 'white',
-          borderRadius: 8,
-          textDecoration: 'none',
-          fontWeight: 'bold',
-        }}
-      >
+      <Link href="/dashboard" style={backButton}>
         ← Nazad na INPRO-BZR
       </Link>
 
@@ -38,11 +28,13 @@ export default async function PoslodavciPage() {
         Izaberite poslodavca i otvorite njegovu radnu stranu.
       </p>
 
-      {/* 🔍 PRETRAGA (ostaje kako je bila) */}
-      <form
-        method="GET"
-        style={{ marginBottom: 20, display: 'flex', gap: 10 }}
-      >
+      {error && (
+        <p style={{ color: 'red', fontWeight: 'bold' }}>
+          Greška: {error.message}
+        </p>
+      )}
+
+      <form method="GET" style={{ marginBottom: 20, display: 'flex', gap: 10 }}>
         <input
           type="text"
           name="search"
@@ -55,22 +47,11 @@ export default async function PoslodavciPage() {
           }}
         />
 
-        <button
-          type="submit"
-          style={{
-            padding: '10px 16px',
-            backgroundColor: '#000',
-            color: '#fff',
-            borderRadius: 8,
-            border: 'none',
-            fontWeight: 'bold',
-          }}
-        >
+        <button type="submit" style={searchButton}>
           Pretraži
         </button>
       </form>
 
-      {/* 📋 LISTA */}
       <div style={gridStyle}>
         {clients?.map((client) => (
           <div key={client.id} style={cardStyle}>
@@ -89,14 +70,10 @@ export default async function PoslodavciPage() {
             </p>
 
             {client.email && <p>Email: {client.email}</p>}
-            {client.kontakt_lice && (
-              <p>Kontakt lice: {client.kontakt_lice}</p>
-            )}
 
-            <Link
-              href={`/dashboard/poslodavci/${client.id}`}
-              style={openButton}
-            >
+            {client.kontakt_lice && <p>Kontakt lice: {client.kontakt_lice}</p>}
+
+            <Link href={`/dashboard/poslodavci/${client.id}`} style={openButton}>
               Otvori
             </Link>
           </div>
@@ -104,6 +81,17 @@ export default async function PoslodavciPage() {
       </div>
     </div>
   )
+}
+
+const backButton: CSSProperties = {
+  display: 'inline-block',
+  marginBottom: 16,
+  padding: '10px 14px',
+  backgroundColor: '#111827',
+  color: 'white',
+  borderRadius: 8,
+  textDecoration: 'none',
+  fontWeight: 'bold',
 }
 
 const gridStyle: CSSProperties = {
@@ -117,6 +105,15 @@ const cardStyle: CSSProperties = {
   border: '1px solid #ddd',
   borderRadius: 12,
   backgroundColor: '#fff',
+}
+
+const searchButton: CSSProperties = {
+  padding: '10px 16px',
+  backgroundColor: '#000',
+  color: '#fff',
+  borderRadius: 8,
+  border: 'none',
+  fontWeight: 'bold',
 }
 
 const openButton: CSSProperties = {
