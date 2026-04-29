@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 
@@ -11,7 +11,7 @@ export default function InspectionDetailPage() {
 
   const [items, setItems] = useState<any[]>([])
   const [answers, setAnswers] = useState<Record<string, string>>({})
-  const [status, setStatus] = useState<'draft' | 'completed'>('draft')
+  const [status, setStatus] = useState<string>('draft')
   const [loading, setLoading] = useState(true)
 
   const [recipientEmail, setRecipientEmail] = useState('')
@@ -22,16 +22,29 @@ export default function InspectionDetailPage() {
 
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [saveMessage, setSaveMessage] = useState('')
 
   const commentTimeouts = useRef<any>({})
 
+  // 📌 učitaj email history iz browsera
   useEffect(() => {
     const saved = localStorage.getItem('daily_email_history')
     if (saved) setEmailHistory(JSON.parse(saved))
   }, [])
 
+  // 📌 učitaj podatke
   useEffect(() => {
     const load = async () => {
+      const { data: inspection } = await supabase
+        .from('inspections')
+        .select('*')
+        .eq('id', inspectionId)
+        .single()
+
+      if (inspection) {
+        setStatus(inspection.status || 'draft')
+      }
+
       const { data: itemsData } = await supabase
         .from('checklist_items')
         .select('*')
@@ -42,6 +55,7 @@ export default function InspectionDetailPage() {
         .eq('inspection_id', inspectionId)
 
       const a: any = {}
+
       answersData?.forEach((row: any) => {
         a[row.checklist_item_id] = row.answer
       })
@@ -126,8 +140,11 @@ export default function InspectionDetailPage() {
   }
 
   const saveInspection = async () => {
+    setSaveError('')
+    setSaveMessage('')
+
     if (!allAnswered) {
-      setSaveError(`❌ Nisu sva pitanja odgovorena (${unansweredCount})`)
+      setSaveError(`❌ Nisu sva pitanja (${unansweredCount})`)
       return
     }
 
@@ -139,6 +156,7 @@ export default function InspectionDetailPage() {
       body: JSON.stringify({ inspection_id: inspectionId }),
     })
 
+    setSaveMessage('✅ Kontrola sačuvana')
     setStatus('completed')
     setSaving(false)
   }
@@ -146,8 +164,13 @@ export default function InspectionDetailPage() {
   if (loading) return <div>Učitavanje...</div>
 
   return (
-    <div style={{ padding: 20, paddingBottom: 120 }}>
+    <div style={{ padding: 20, paddingBottom: 140 }}>
       <h1>Kontrola</h1>
+
+      {/* 🔥 DEBUG */}
+      <div style={{ background: 'yellow', padding: 10 }}>
+        STATUS: {status}
+      </div>
 
       {items.map((item) => (
         <div key={item.id} style={{ marginBottom: 10 }}>
@@ -158,6 +181,7 @@ export default function InspectionDetailPage() {
         </div>
       ))}
 
+      {/* EMAIL */}
       <div style={{ marginTop: 20 }}>
         <select
           value={recipientEmail}
@@ -182,42 +206,45 @@ export default function InspectionDetailPage() {
         {emailError && <p>{emailError}</p>}
       </div>
 
-      {/* 🔥 OVO JE KLJUČNO DUGME */}
-      {status === 'draft' && (
-        <div
+      {/* 🔥 SNIMI KONTROLU UVEK VIDLJIVO */}
+      <div
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          background: '#fff',
+          padding: 15,
+          borderTop: '2px solid #ddd',
+          zIndex: 99999,
+        }}
+      >
+        <button
+          onClick={saveInspection}
+          disabled={!allAnswered || saving}
           style={{
-            position: 'fixed',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            background: '#fff',
-            padding: 15,
-            borderTop: '1px solid #ddd',
+            width: '100%',
+            padding: 18,
+            fontSize: 20,
+            fontWeight: 'bold',
+            background: !allAnswered ? '#999' : '#16a34a',
+            color: 'white',
+            border: 'none',
+            borderRadius: 10,
           }}
         >
-          <button
-            onClick={saveInspection}
-            disabled={!allAnswered || saving}
-            style={{
-              width: '100%',
-              padding: 18,
-              fontSize: 20,
-              background: !allAnswered ? '#999' : '#16a34a',
-              color: 'white',
-              border: 'none',
-              borderRadius: 10,
-            }}
-          >
-            {saving ? 'Snimanje...' : 'Snimi kontrolu'}
-          </button>
+          {saving ? 'Snimanje...' : 'Snimi kontrolu'}
+        </button>
 
-          {!allAnswered && (
-            <p style={{ color: 'red' }}>
-              Nisu sva pitanja odgovorena ({unansweredCount})
-            </p>
-          )}
-        </div>
-      )}
+        {!allAnswered && (
+          <p style={{ color: 'red' }}>
+            Nisu odgovorena sva pitanja ({unansweredCount})
+          </p>
+        )}
+
+        {saveMessage && <p style={{ color: 'green' }}>{saveMessage}</p>}
+        {saveError && <p style={{ color: 'red' }}>{saveError}</p>}
+      </div>
     </div>
   )
 }
