@@ -10,34 +10,45 @@ export default function NovaKontrolaPage() {
   const router = useRouter()
   const supabase = createClient()
 
-  const poslodavacId = params.id as string
+  const clientId = params.id as string
 
   const [naziv, setNaziv] = useState('')
+  const [employerId, setEmployerId] = useState('')
   const [objectName, setObjectName] = useState('')
   const [advisorName, setAdvisorName] = useState('')
   const [inspectionDate, setInspectionDate] = useState(
     new Date().toISOString().slice(0, 10)
   )
-
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('klijenti')
-        .select('naziv')
-        .eq('id', poslodavacId)
+        .select('naziv, employer_id')
+        .eq('id', clientId)
         .single()
 
+      if (error) {
+        setError(error.message)
+        return
+      }
+
       setNaziv(data?.naziv || '')
+      setEmployerId(data?.employer_id || '')
     }
 
     load()
-  }, [poslodavacId])
+  }, [clientId])
 
   const createInspection = async () => {
     setError('')
+
+    if (!employerId) {
+      setError('Ovaj poslodavac nema employer_id vezu.')
+      return
+    }
 
     if (!objectName.trim()) {
       setError('Unesi objekat.')
@@ -54,6 +65,7 @@ export default function NovaKontrolaPage() {
     const { data, error } = await supabase
       .from('inspections')
       .insert({
+        employer_id: employerId,
         client_name: naziv,
         object_name: objectName.trim(),
         advisor_name: advisorName.trim(),
@@ -75,7 +87,7 @@ export default function NovaKontrolaPage() {
 
   return (
     <div style={{ padding: 30, maxWidth: 650 }}>
-      <Link href={`/dashboard/poslodavci/${poslodavacId}`}>
+      <Link href={`/dashboard/poslodavci/${clientId}`}>
         ← Nazad na poslodavca
       </Link>
 
@@ -89,36 +101,17 @@ export default function NovaKontrolaPage() {
         <h3>BZR Kontrolna lista</h3>
 
         <label style={labelStyle}>Objekat</label>
-        <input
-          value={objectName}
-          onChange={(e) => setObjectName(e.target.value)}
-          placeholder="Unesi objekat"
-          style={inputStyle}
-        />
+        <input value={objectName} onChange={(e) => setObjectName(e.target.value)} style={inputStyle} />
 
         <label style={labelStyle}>Savetnik</label>
-        <input
-          value={advisorName}
-          onChange={(e) => setAdvisorName(e.target.value)}
-          placeholder="Unesi ime savetnika"
-          style={inputStyle}
-        />
+        <input value={advisorName} onChange={(e) => setAdvisorName(e.target.value)} style={inputStyle} />
 
         <label style={labelStyle}>Datum</label>
-        <input
-          type="date"
-          value={inspectionDate}
-          onChange={(e) => setInspectionDate(e.target.value)}
-          style={inputStyle}
-        />
+        <input type="date" value={inspectionDate} onChange={(e) => setInspectionDate(e.target.value)} style={inputStyle} />
 
         {error && <p style={{ color: 'red' }}>❌ {error}</p>}
 
-        <button
-          onClick={createInspection}
-          disabled={saving}
-          style={buttonStyle}
-        >
+        <button onClick={createInspection} disabled={saving} style={buttonStyle}>
           {saving ? 'Kreiranje...' : 'Kreiraj kontrolu'}
         </button>
       </div>
