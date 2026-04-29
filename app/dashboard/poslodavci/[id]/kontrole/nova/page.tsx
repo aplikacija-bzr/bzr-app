@@ -2,16 +2,15 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 
 export default function NovaKontrolaPage() {
+  const params = useParams()
   const router = useRouter()
-  const pathname = usePathname()
   const supabase = createClient()
 
-  const parts = pathname.split('/')
-  const clientId = parts[3]
+  const clientId = String(params.id || '')
 
   const [naziv, setNaziv] = useState('')
   const [employerId, setEmployerId] = useState('')
@@ -26,7 +25,7 @@ export default function NovaKontrolaPage() {
   useEffect(() => {
     const load = async () => {
       if (!clientId) {
-        setError('Nedostaje ID poslodavca u URL-u.')
+        setError('Nedostaje ID poslodavca.')
         return
       }
 
@@ -76,6 +75,11 @@ export default function NovaKontrolaPage() {
 
   const createInspection = async () => {
     setError('')
+
+    if (!clientId) {
+      setError('Nedostaje ID poslodavca.')
+      return
+    }
 
     if (!objectName.trim()) {
       setError('Unesi objekat.')
