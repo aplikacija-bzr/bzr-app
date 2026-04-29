@@ -2,22 +2,6 @@ import Link from 'next/link'
 import { createClient } from '@/utils/supabase/server'
 import MonthlyReportButton from '@/app/components/MonthlyReportButton'
 
-type Client = {
-  id: string
-  naziv: string | null
-  aktivan: boolean | null
-  employer_id: string | null
-}
-
-type Inspection = {
-  id: string
-  inspection_date: string | null
-  status: string | null
-  client_name: string | null
-  advisor_name?: string | null
-  created_at?: string | null
-}
-
 export default async function ClientPage({
   params,
 }: {
@@ -26,121 +10,118 @@ export default async function ClientPage({
   const supabase = await createClient()
   const { id: clientId } = await params
 
-  const { data: client, error: clientError } = await supabase
+  const { data: client, error } = await supabase
     .from('klijenti')
     .select('id, naziv, aktivan, employer_id')
     .eq('id', clientId)
     .single()
 
-  if (clientError || !client) {
+  if (error || !client) {
     return (
-      <div className="p-6">
-        <Link href="/dashboard/poslodavci" className="underline">
-          ← Nazad na poslodavce
-        </Link>
-        <p className="text-red-600 mt-4">Greška pri učitavanju poslodavca.</p>
+      <div style={{ padding: 30 }}>
+        <Link href="/dashboard/poslodavci">← Nazad</Link>
+        <p style={{ color: 'red' }}>Greška pri učitavanju poslodavca.</p>
       </div>
     )
   }
 
   const employerId = client.employer_id || ''
 
-  let inspections: Inspection[] = []
-  let inspectionsErrorMessage = ''
-
-  if (employerId) {
-    const result = await supabase
-      .from('inspections')
-      .select('id, inspection_date, status, client_name, advisor_name, created_at')
-      .eq('employer_id', employerId)
-      .order('inspection_date', { ascending: false })
-
-    if (result.error) {
-      inspectionsErrorMessage = result.error.message
-    } else {
-      inspections = result.data || []
-    }
-  }
-
-  const advisorName =
-    inspections.find((i) => i.advisor_name && i.advisor_name.trim() !== '')
-      ?.advisor_name || ''
+  const { data: inspections } = employerId
+    ? await supabase
+        .from('inspections')
+        .select('id, inspection_date, status')
+        .eq('employer_id', employerId)
+        .order('inspection_date', { ascending: false })
+    : { data: [] }
 
   return (
-    <div className="p-6 space-y-6">
-      <Link href="/dashboard/poslodavci" className="underline">
-        ← Nazad na poslodavce
-      </Link>
+    <div style={{ padding: 30 }}>
+      <Link href="/dashboard/poslodavci">← Nazad na poslodavce</Link>
 
-      <div className="rounded-xl border p-5 bg-white">
-        <h1 className="text-2xl font-bold">{client.naziv}</h1>
+      <div style={card}>
+        <h1>{client.naziv}</h1>
 
-        <p className="mt-2 text-sm">
+        <p>
           Status:{' '}
-          <span className={client.aktivan ? 'text-green-600' : 'text-red-600'}>
+          <b style={{ color: client.aktivan ? 'green' : 'red' }}>
             {client.aktivan ? 'Aktivan' : 'Neaktivan'}
-          </span>
+          </b>
         </p>
 
-        {!employerId ? (
-          <p className="mt-3 text-sm text-red-600">
+        {!employerId && (
+          <p style={{ color: 'red' }}>
             Nema employer_id veze za ovog poslodavca.
           </p>
-        ) : null}
+        )}
       </div>
 
-      <div className="rounded-xl border p-5 bg-white">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold">Dnevne kontrole</h2>
+      <div style={card}>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <h2>Dnevne kontrole</h2>
 
           <Link
-            href={`/dashboard/poslodavci/${clientId}/kontrola/nova`}
-            className="bg-black text-white px-4 py-2 rounded-lg text-sm"
+            href={`/dashboard/poslodavci/${clientId}/kontrole/nova`}
+            style={btn}
           >
             Nova kontrola
           </Link>
         </div>
 
         {!employerId ? (
-          <p className="text-sm text-red-600">Nema employer_id.</p>
-        ) : inspectionsErrorMessage ? (
-          <p className="text-sm text-red-600">Greška: {inspectionsErrorMessage}</p>
-        ) : inspections.length === 0 ? (
-          <p className="text-sm text-gray-600">Nema kontrola za ovog poslodavca.</p>
+          <p style={{ color: 'red' }}>Nema employer_id.</p>
+        ) : inspections?.length === 0 ? (
+          <p>Nema kontrola.</p>
         ) : (
-          <div className="space-y-2">
-            {inspections.map((inspection) => (
-              <div key={inspection.id} className="border rounded-lg p-3 flex justify-between">
-                <div>
-                  <p className="text-sm">
-                    Datum:{' '}
-                    {inspection.inspection_date
-                      ? new Date(inspection.inspection_date).toLocaleDateString('sr-RS')
-                      : '-'}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Status: {inspection.status || 'u toku'}
-                  </p>
-                </div>
+          inspections?.map((i) => (
+            <div key={i.id} style={row}>
+              <span>
+                {i.inspection_date
+                  ? new Date(i.inspection_date).toLocaleDateString('sr-RS')
+                  : '-'}
+              </span>
 
-                <Link href={`/dashboard/kontrole/${inspection.id}`} className="underline text-sm">
-                  Otvori
-                </Link>
-              </div>
-            ))}
-          </div>
+              <Link href={`/dashboard/kontrole/${i.id}`}>Otvori</Link>
+            </div>
+          ))
         )}
       </div>
 
-      <div className="rounded-xl border p-5 bg-white">
-        <h2 className="text-lg font-semibold mb-3">Mesečni izveštaj</h2>
+      <div style={card}>
+        <h2>Mesečni izveštaj</h2>
 
         {employerId ? (
-          <MonthlyReportButton employerId={employerId} advisorName={advisorName} />
+          <MonthlyReportButton employerId={employerId} advisorName="" />
         ) : (
-          <p className="text-sm text-red-600">Mesečni izveštaj nije moguć bez employer_id.</p>
+          <p style={{ color: 'red' }}>
+            Mesečni izveštaj nije moguć bez employer_id.
+          </p>
         )}
       </div>
     </div>
   )
+}
+
+const card = {
+  border: '1px solid #ddd',
+  borderRadius: 12,
+  padding: 20,
+  marginTop: 20,
+  background: '#fafafa',
+}
+
+const btn = {
+  padding: '10px 16px',
+  background: 'black',
+  color: 'white',
+  borderRadius: 8,
+  textDecoration: 'none',
+  fontWeight: 'bold',
+}
+
+const row = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  padding: 10,
+  borderBottom: '1px solid #eee',
 }
