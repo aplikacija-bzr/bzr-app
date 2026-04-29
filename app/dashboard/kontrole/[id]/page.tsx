@@ -122,8 +122,10 @@ export default function InspectionDetailPage() {
     if (inspectionId) load()
 
     return () => {
-      Object.values(commentTimeouts.current).forEach(clearTimeout)
-    }
+  Object.values(commentTimeouts.current).forEach((timeout) => {
+    clearTimeout(timeout as ReturnType<typeof setTimeout>)
+  })
+}
   }, [inspectionId])
 
   const pdfPhotoUrls = useMemo(() => {
