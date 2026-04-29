@@ -79,6 +79,11 @@ export default async function DashboardPage() {
           🔍 Pretraga poslodavaca
         </Link>
 
+        {/* 🔥 NOVO DUGME */}
+        <Link href="/dashboard/poslodavci/novi" style={greenButton}>
+          ➕ Dodaj poslodavca
+        </Link>
+
         <Link href="/dashboard/email-logovi" style={buttonStyle}>
           📧 Pregled poslatih emailova
         </Link>
@@ -124,6 +129,18 @@ const buttonStyle: CSSProperties = {
   padding: '14px 18px',
   borderRadius: 10,
   backgroundColor: '#111827',
+  color: 'white',
+  textDecoration: 'none',
+  fontSize: 16,
+  fontWeight: 'bold',
+  textAlign: 'center',
+}
+
+const greenButton: CSSProperties = {
+  display: 'block',
+  padding: '14px 18px',
+  borderRadius: 10,
+  backgroundColor: '#16a34a',
   color: 'white',
   textDecoration: 'none',
   fontSize: 16,
