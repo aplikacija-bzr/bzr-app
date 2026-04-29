@@ -11,31 +11,45 @@ export default function NoviPoslodavacPage() {
 
   const [naziv, setNaziv] = useState('')
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
 
-  const save = async () => {
-    setError('')
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setMessage('')
 
     if (!naziv.trim()) {
-      setError('Unesi naziv poslodavca.')
+      setMessage('❌ Unesi naziv poslodavca.')
       return
     }
 
     setSaving(true)
 
-    const { error } = await supabase.from('klijenti').insert({
-      naziv: naziv.trim(),
-      aktivan: true,
-    })
+    const { data, error } = await supabase
+      .from('klijenti')
+      .insert({
+        naziv: naziv.trim(),
+        aktivan: true,
+      })
+      .select()
 
     setSaving(false)
 
     if (error) {
-      setError(error.message)
+      setMessage(`❌ Greška: ${error.message}`)
       return
     }
 
-    router.push('/dashboard/poslodavci')
+    if (!data || data.length === 0) {
+      setMessage('❌ Nije upisano u bazu.')
+      return
+    }
+
+    setMessage('✅ Poslodavac je sačuvan.')
+
+    setTimeout(() => {
+      router.push('/dashboard/poslodavci')
+      router.refresh()
+    }, 700)
   }
 
   return (
@@ -44,18 +58,29 @@ export default function NoviPoslodavacPage() {
 
       <h1>Dodaj poslodavca</h1>
 
-      <input
-        value={naziv}
-        onChange={(e) => setNaziv(e.target.value)}
-        placeholder="Naziv poslodavca"
-        style={inputStyle}
-      />
+      <form onSubmit={save}>
+        <input
+          value={naziv}
+          onChange={(e) => setNaziv(e.target.value)}
+          placeholder="Naziv poslodavca"
+          style={inputStyle}
+        />
 
-      {error && <p style={{ color: 'red' }}>❌ {error}</p>}
+        {message && (
+          <p
+            style={{
+              color: message.startsWith('✅') ? 'green' : 'red',
+              fontWeight: 'bold',
+            }}
+          >
+            {message}
+          </p>
+        )}
 
-      <button onClick={save} disabled={saving} style={buttonStyle}>
-        {saving ? 'Snimanje...' : 'Sačuvaj poslodavca'}
-      </button>
+        <button type="submit" disabled={saving} style={buttonStyle}>
+          {saving ? 'Snimanje...' : 'Sačuvaj poslodavca'}
+        </button>
+      </form>
     </div>
   )
 }
