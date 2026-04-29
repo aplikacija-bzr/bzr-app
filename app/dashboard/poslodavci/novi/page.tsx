@@ -1,97 +1,101 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 
-export default function EmployersPage() {
+export default function NoviPoslodavacPage() {
+  const router = useRouter()
   const supabase = createClient()
 
-  const [employers, setEmployers] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [naziv, setNaziv] = useState('')
+  const [email, setEmail] = useState('')
+  const [kontaktLice, setKontaktLice] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
-  useEffect(() => {
-    const load = async () => {
-      const { data } = await supabase
-        .from('employers')
-        .select('*')
-        .order('created_at', { ascending: false })
+  const save = async () => {
+    setError('')
 
-      setEmployers(data || [])
-      setLoading(false)
+    if (!naziv.trim()) {
+      setError('Unesi naziv poslodavca.')
+      return
     }
 
-    load()
-  }, [])
+    setSaving(true)
 
-  if (loading) {
-    return <div style={{ padding: 20 }}>Učitavanje...</div>
+    const { error } = await supabase.from('klijenti').insert({
+      naziv: naziv.trim(),
+      email: email.trim() || null,
+      kontakt_lice: kontaktLice.trim() || null,
+      aktivan: true,
+    })
+
+    setSaving(false)
+
+    if (error) {
+      setError(error.message)
+      return
+    }
+
+    router.push('/dashboard/poslodavci')
   }
 
   return (
-    <div style={{ padding: 20, maxWidth: 900, margin: 'auto' }}>
-      
-      <h1 style={{ marginBottom: 20 }}>Poslodavci</h1>
+    <div style={{ padding: 30, maxWidth: 600 }}>
+      <Link href="/dashboard/poslodavci">← Nazad na poslodavce</Link>
 
-      {/* 🔥 DUGME */}
-      <div style={{ marginBottom: 20 }}>
-        <Link href="/dashboard/poslodavci/novi">
-          <button
-            style={{
-              padding: '14px 20px',
-              backgroundColor: '#16a34a',
-              color: 'white',
-              border: 'none',
-              borderRadius: 10,
-              fontSize: 16,
-              fontWeight: 'bold',
-              cursor: 'pointer',
-            }}
-          >
-            ➕ Dodaj poslodavca
-          </button>
-        </Link>
-      </div>
+      <h1>Dodaj poslodavca</h1>
 
-      {employers.length === 0 ? (
-        <p>Nema unetih poslodavaca.</p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {employers.map((emp) => (
-            <Link
-              key={emp.id}
-              href={`/dashboard/poslodavci/${emp.id}`}
-              style={{ textDecoration: 'none' }}
-            >
-              <div
-                style={{
-                  padding: 16,
-                  border: '1px solid #ddd',
-                  borderRadius: 12,
-                  backgroundColor: '#fff',
-                  boxShadow: '0 4px 10px rgba(0,0,0,0.05)',
-                }}
-              >
-                <div style={{ fontSize: 18, fontWeight: 'bold' }}>
-                  {emp.name || 'Naziv nije unet'}
-                </div>
+      <input
+        value={naziv}
+        onChange={(e) => setNaziv(e.target.value)}
+        placeholder="Naziv poslodavca"
+        style={inputStyle}
+      />
 
-                {emp.address && (
-                  <div style={{ marginTop: 6, color: '#555' }}>
-                    📍 {emp.address}
-                  </div>
-                )}
+      <input
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="Email"
+        style={inputStyle}
+      />
 
-                {emp.email && (
-                  <div style={{ marginTop: 4, color: '#555' }}>
-                    📧 {emp.email}
-                  </div>
-                )}
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
+      <input
+        value={kontaktLice}
+        onChange={(e) => setKontaktLice(e.target.value)}
+        placeholder="Kontakt lice"
+        style={inputStyle}
+      />
+
+      {error && <p style={{ color: 'red' }}>❌ {error}</p>}
+
+      <button onClick={save} disabled={saving} style={buttonStyle}>
+        {saving ? 'Snimanje...' : 'Sačuvaj poslodavca'}
+      </button>
     </div>
   )
+}
+
+const inputStyle = {
+  width: '100%',
+  padding: 12,
+  marginBottom: 12,
+  borderRadius: 10,
+  border: '1px solid #ccc',
+  fontSize: 16,
+  boxSizing: 'border-box' as const,
+}
+
+const buttonStyle = {
+  width: '100%',
+  padding: 16,
+  backgroundColor: '#16a34a',
+  color: 'white',
+  border: 'none',
+  borderRadius: 10,
+  fontWeight: 'bold',
+  fontSize: 16,
+  cursor: 'pointer',
 }
