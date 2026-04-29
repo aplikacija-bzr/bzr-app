@@ -31,35 +31,66 @@ type Props = {
 const appUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://bzr-app.vercel.app";
 
+const fullImageUrl = (src: string) => {
+  if (!src) return "";
+  if (src.startsWith("http://") || src.startsWith("https://")) return src;
+  if (src.startsWith("/")) return `${appUrl}${src}`;
+  return `${appUrl}/${src}`;
+};
+
 Font.register({
   family: "DejaVuSans",
   src: `${appUrl}/fonts/DejaVuSans.ttf`,
 });
 
 const styles = StyleSheet.create({
-  page: { padding: 24, fontSize: 10, fontFamily: "DejaVuSans" },
+  page: {
+    padding: 24,
+    fontSize: 10,
+    fontFamily: "DejaVuSans",
+  },
+
   memorandum: {
     borderWidth: 2,
     borderColor: "#000",
     padding: 12,
     marginBottom: 16,
   },
+
   firmName: {
     fontSize: 20,
     fontWeight: "bold",
     textAlign: "center",
     marginBottom: 4,
   },
-  firmSub: { fontSize: 11, textAlign: "center", marginBottom: 2 },
+
+  firmSub: {
+    fontSize: 11,
+    textAlign: "center",
+    marginBottom: 2,
+  },
+
   line: {
     borderBottomWidth: 1,
     borderBottomColor: "#000",
     marginTop: 8,
     marginBottom: 8,
   },
-  title: { fontSize: 15, fontWeight: "bold", textAlign: "center" },
-  meta: { marginBottom: 12 },
-  metaRow: { marginBottom: 3 },
+
+  title: {
+    fontSize: 15,
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+
+  meta: {
+    marginBottom: 12,
+  },
+
+  metaRow: {
+    marginBottom: 3,
+  },
+
   item: {
     borderWidth: 1,
     borderColor: "#ddd",
@@ -67,16 +98,34 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderRadius: 4,
   },
-  question: { fontSize: 11, fontWeight: "bold", marginBottom: 4 },
-  answerYes: { color: "green", fontWeight: "bold" },
-  answerNo: { color: "red", fontWeight: "bold" },
-  comment: { marginTop: 3 },
+
+  question: {
+    fontSize: 11,
+    fontWeight: "bold",
+    marginBottom: 4,
+  },
+
+  answerYes: {
+    color: "green",
+    fontWeight: "bold",
+  },
+
+  answerNo: {
+    color: "red",
+    fontWeight: "bold",
+  },
+
+  comment: {
+    marginTop: 3,
+  },
+
   photosWrap: {
     marginTop: 8,
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 6,
   },
+
   photo: {
     width: 150,
     height: 105,
@@ -84,13 +133,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#ccc",
   },
+
   conclusion: {
     marginTop: 18,
     borderWidth: 1,
     borderColor: "#000",
     padding: 10,
   },
-  conclusionTitle: { fontWeight: "bold", marginBottom: 6 },
+
+  conclusionTitle: {
+    fontWeight: "bold",
+    marginBottom: 6,
+  },
 });
 
 export default function InspectionPdf({
@@ -109,8 +163,14 @@ export default function InspectionPdf({
   const ne = valid.filter((i) => i.answer === "NE").length;
 
   let stanje = "MERE ZA BZR PRIMENJENE";
-  if (ne === 1) stanje = "MERE ZA BZR PRIMENJENE ZADOVOLJAVAJUĆE";
-  if (ne > 1) stanje = "MERE ZA BZR NEZADOVOLJAVAJUĆE";
+
+  if (ne === 1) {
+    stanje = "MERE ZA BZR PRIMENJENE ZADOVOLJAVAJUĆE";
+  }
+
+  if (ne > 1) {
+    stanje = "MERE ZA BZR NEZADOVOLJAVAJUĆE";
+  }
 
   return (
     <Document>
@@ -120,7 +180,9 @@ export default function InspectionPdf({
           <Text style={styles.firmSub}>Bezbednost i zdravlje na radu</Text>
           <Text style={styles.firmSub}>d.o.o. Bajina Bašta</Text>
           <Text style={styles.firmSub}>office@inpro.rs</Text>
+
           <View style={styles.line} />
+
           <Text style={styles.title}>{title}</Text>
         </View>
 
@@ -157,28 +219,36 @@ export default function InspectionPdf({
                 Komentar: {item.comment || "—"}
               </Text>
 
-              {itemPhotos.length > 0 ? (
+              {itemPhotos.length > 0 && (
                 <View style={styles.photosWrap}>
                   {itemPhotos.map((src, idx) => (
-                    <Image key={idx} src={src} style={styles.photo} />
+                    <Image
+                      key={idx}
+                      src={fullImageUrl(src)}
+                      style={styles.photo}
+                    />
                   ))}
                 </View>
-              ) : null}
+              )}
             </View>
           );
         })}
 
-        {photos.length > 0 ? (
+        {photos.length > 0 && (
           <View style={styles.item}>
             <Text style={styles.question}>Fotografije kontrole</Text>
 
             <View style={styles.photosWrap}>
               {photos.map((src, idx) => (
-                <Image key={idx} src={src} style={styles.photo} />
+                <Image
+                  key={idx}
+                  src={fullImageUrl(src)}
+                  style={styles.photo}
+                />
               ))}
             </View>
           </View>
-        ) : null}
+        )}
 
         <View style={styles.conclusion}>
           <Text style={styles.conclusionTitle}>ZAKLJUČAK</Text>
