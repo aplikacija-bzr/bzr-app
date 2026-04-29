@@ -34,7 +34,6 @@ export default function PhotoUpload({
     const filePath = `${inspectionId}/${Date.now()}-${safeName}`
 
     try {
-      // 1. upload u storage
       const { error: uploadError } = await supabase.storage
         .from(BUCKET)
         .upload(filePath, file, {
@@ -47,12 +46,23 @@ export default function PhotoUpload({
         return
       }
 
-      // 2. upis u bazu (SAMO file_path)
+      const { data: publicUrlData } = supabase.storage
+        .from(BUCKET)
+        .getPublicUrl(filePath)
+
+      const fileUrl = publicUrlData.publicUrl
+
+      if (!fileUrl) {
+        setMessage('Greška: nije napravljen URL fotografije.')
+        return
+      }
+
       const { error: dbError } = await supabase
         .from('inspection_photos')
         .insert({
           inspection_id: inspectionId,
           file_path: filePath,
+          file_url: fileUrl,
         })
 
       if (dbError) {
@@ -94,6 +104,7 @@ export default function PhotoUpload({
       />
 
       <button
+        type="button"
         onClick={() => fileInputRef.current?.click()}
         disabled={uploading}
         style={{
@@ -103,6 +114,7 @@ export default function PhotoUpload({
           borderRadius: 10,
           border: 'none',
           fontWeight: 'bold',
+          cursor: uploading ? 'not-allowed' : 'pointer',
         }}
       >
         {uploading ? 'Upload...' : '📷 Dodaj fotografiju'}
