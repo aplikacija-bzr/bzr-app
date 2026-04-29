@@ -14,21 +14,18 @@ export default function NovaKontrolaPage() {
 
   const [naziv, setNaziv] = useState('')
   const [employerId, setEmployerId] = useState('')
+  const [checklistId, setChecklistId] = useState('')
   const [objectName, setObjectName] = useState('')
   const [advisorName, setAdvisorName] = useState('')
   const [inspectionDate, setInspectionDate] = useState(
     new Date().toISOString().slice(0, 10)
   )
+
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
     const load = async () => {
-      if (!clientId) {
-        setError('Nedostaje ID poslodavca.')
-        return
-      }
-
       const { data, error } = await supabase
         .from('klijenti')
         .select('naziv, employer_id')
@@ -42,42 +39,32 @@ export default function NovaKontrolaPage() {
 
       setNaziv(data?.naziv || '')
       setEmployerId(data?.employer_id || '')
+
+      // 🔥 UZMI PRVU CHECKLISTU
+      const { data: checklist } = await supabase
+        .from('checklists')
+        .select('id')
+        .limit(1)
+        .single()
+
+      if (checklist?.id) {
+        setChecklistId(checklist.id)
+      }
     }
 
-    load()
+    if (clientId) load()
   }, [clientId])
-
-  const ensureEmployerId = async () => {
-    if (employerId) return employerId
-
-    const { data: employer, error: employerError } = await supabase
-      .from('employers')
-      .insert({ name: naziv || 'Poslodavac' })
-      .select('id')
-      .single()
-
-    if (employerError || !employer) {
-      throw new Error(employerError?.message || 'Ne mogu da napravim employer_id.')
-    }
-
-    const { error: updateError } = await supabase
-      .from('klijenti')
-      .update({ employer_id: employer.id })
-      .eq('id', clientId)
-
-    if (updateError) {
-      throw new Error(updateError.message)
-    }
-
-    setEmployerId(employer.id)
-    return employer.id
-  }
 
   const createInspection = async () => {
     setError('')
 
-    if (!clientId) {
-      setError('Nedostaje ID poslodavca.')
+    if (!employerId) {
+      setError('Nema employer_id.')
+      return
+    }
+
+    if (!checklistId) {
+      setError('Nema checklist_id.')
       return
     }
 
@@ -93,33 +80,28 @@ export default function NovaKontrolaPage() {
 
     setSaving(true)
 
-    try {
-      const finalEmployerId = await ensureEmployerId()
+    const { data, error } = await supabase
+      .from('inspections')
+      .insert({
+        employer_id: employerId,
+        checklist_id: checklistId,
+        client_name: naziv,
+        object_name: objectName.trim(),
+        advisor_name: advisorName.trim(),
+        inspection_date: inspectionDate,
+        status: 'draft',
+      })
+      .select('id')
+      .single()
 
-      const { data, error } = await supabase
-        .from('inspections')
-        .insert({
-          employer_id: finalEmployerId,
-          client_name: naziv,
-          object_name: objectName.trim(),
-          advisor_name: advisorName.trim(),
-          inspection_date: inspectionDate,
-          status: 'draft',
-        })
-        .select('id')
-        .single()
+    setSaving(false)
 
-      if (error) {
-        setError(error.message)
-        setSaving(false)
-        return
-      }
-
-      router.push(`/dashboard/kontrole/${data.id}`)
-    } catch (err: any) {
-      setError(err?.message || 'Greška pri kreiranju kontrole.')
-      setSaving(false)
+    if (error) {
+      setError(error.message)
+      return
     }
+
+    router.push(`/dashboard/kontrole/${data.id}`)
   }
 
   return (
