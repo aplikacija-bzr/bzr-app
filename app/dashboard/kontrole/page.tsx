@@ -34,6 +34,7 @@ export default function KontrolePage() {
 
       const { data, error } = await supabase
         .from('inspections')
+        .eq('locked', false)
         .select(
           'id, client_name, object_name, advisor_name, inspection_date, status'
         )
