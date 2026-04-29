@@ -22,13 +22,16 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-async function pdfToBuffer(pdfElement: React.ReactElement) {
+// 🔥 FIX: uklonjen TypeScript problem
+async function pdfToBuffer(pdfElement: any) {
   const result = await pdf(pdfElement).toBuffer();
 
+  // ako je već buffer
   if (Buffer.isBuffer(result)) {
     return result;
   }
 
+  // ako je stream → konvertuj u buffer
   const chunks: Uint8Array[] = [];
 
   for await (const chunk of result as any) {
@@ -87,7 +90,9 @@ export async function POST(req: Request) {
     to = bodyTo;
     inspection_id = bodyInspectionId || "";
 
-    subject = `BZR kontrolna lista${companyName ? ` - ${companyName}` : ""}`;
+    subject = `BZR kontrolna lista${
+      companyName ? ` - ${companyName}` : ""
+    }`;
 
     if (!to) {
       return NextResponse.json(
@@ -96,6 +101,7 @@ export async function POST(req: Request) {
       );
     }
 
+    // 📄 PDF
     const pdfElement = React.createElement(InspectionPdf, {
       title: "DNEVNA BZR KONTROLNA LISTA",
       items,
@@ -108,6 +114,7 @@ export async function POST(req: Request) {
 
     const pdfBuffer = await pdfToBuffer(pdfElement);
 
+    // 📧 SLANJE MAILA
     await transporter.sendMail({
       from: process.env.SMTP_FROM,
       to,
