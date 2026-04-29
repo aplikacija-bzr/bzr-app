@@ -3,11 +3,9 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/utils/supabase/client'
 
 export default function NoviPoslodavacPage() {
   const router = useRouter()
-  const supabase = createClient()
 
   const [naziv, setNaziv] = useState('')
   const [saving, setSaving] = useState(false)
@@ -24,39 +22,26 @@ export default function NoviPoslodavacPage() {
 
     setSaving(true)
 
-    const { data: employer, error: employerError } = await supabase
-      .from('employers')
-      .insert({
-        name: naziv.trim(),
-      })
-      .select('id')
-      .single()
-
-    if (employerError || !employer) {
-      setSaving(false)
-      setMessage(`❌ Greška employers: ${employerError?.message}`)
-      return
-    }
-
-    const { error: clientError } = await supabase.from('klijenti').insert({
-      naziv: naziv.trim(),
-      aktivan: true,
-      employer_id: employer.id,
+    const res = await fetch('/api/poslodavci', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ naziv }),
     })
 
+    const data = await res.json()
     setSaving(false)
 
-    if (clientError) {
-      setMessage(`❌ Greška klijenti: ${clientError.message}`)
+    if (!res.ok) {
+      setMessage(`❌ ${data.error}`)
       return
     }
 
     setMessage('✅ Poslodavac je sačuvan.')
 
     setTimeout(() => {
-      router.push('/dashboard/poslodavci')
+      router.push(`/dashboard/poslodavci/${data.clientId}`)
       router.refresh()
-    }, 700)
+    }, 500)
   }
 
   return (
@@ -74,12 +59,7 @@ export default function NoviPoslodavacPage() {
         />
 
         {message && (
-          <p
-            style={{
-              color: message.startsWith('✅') ? 'green' : 'red',
-              fontWeight: 'bold',
-            }}
-          >
+          <p style={{ color: message.startsWith('✅') ? 'green' : 'red', fontWeight: 'bold' }}>
             {message}
           </p>
         )}
