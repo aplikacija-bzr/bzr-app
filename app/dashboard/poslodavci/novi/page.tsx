@@ -10,8 +10,6 @@ export default function NoviPoslodavacPage() {
   const supabase = createClient()
 
   const [naziv, setNaziv] = useState('')
-  const [email, setEmail] = useState('')
-  const [kontaktLice, setKontaktLice] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -27,8 +25,6 @@ export default function NoviPoslodavacPage() {
 
     const { error } = await supabase.from('klijenti').insert({
       naziv: naziv.trim(),
-      email: email.trim() || null,
-      kontakt_lice: kontaktLice.trim() || null,
       aktivan: true,
     })
 
@@ -52,20 +48,6 @@ export default function NoviPoslodavacPage() {
         value={naziv}
         onChange={(e) => setNaziv(e.target.value)}
         placeholder="Naziv poslodavca"
-        style={inputStyle}
-      />
-
-      <input
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="Email"
-        style={inputStyle}
-      />
-
-      <input
-        value={kontaktLice}
-        onChange={(e) => setKontaktLice(e.target.value)}
-        placeholder="Kontakt lice"
         style={inputStyle}
       />
 
