@@ -14,6 +14,7 @@ export default function NoviPoslodavacPage() {
   const [message, setMessage] = useState('')
 
   const save = async (e: React.FormEvent) => {
+    alert('Klik na Sačuvaj radi')
     e.preventDefault()
     setMessage('')
 
