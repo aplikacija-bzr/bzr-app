@@ -1,146 +1,115 @@
+'use client'
+
 import Link from 'next/link'
-import { createClient } from '@/utils/supabase/server'
-import MonthlyReportButton from '@/app/components/MonthlyReportButton'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/utils/supabase/client'
 
-type Client = {
-  id: string
-  naziv: string | null
-  aktivan: boolean | null
-  employer_id: string | null
-}
+export default function NoviPoslodavacPage() {
+  const router = useRouter()
+  const supabase = createClient()
 
-type Inspection = {
-  id: string
-  inspection_date: string | null
-  status: string | null
-  client_name: string | null
-  advisor_name?: string | null
-  created_at?: string | null
-}
+  const [naziv, setNaziv] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState('')
 
-export default async function ClientPage({
-  params,
-}: {
-  params: Promise<{ id: string }>
-}) {
-  const supabase = await createClient()
-  const { id: clientId } = await params
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setMessage('')
 
-  const { data: client, error: clientError } = await supabase
-    .from('klijenti')
-    .select('id, naziv, aktivan, employer_id')
-    .eq('id', clientId)
-    .single()
-
-  if (clientError || !client) {
-    return (
-      <div className="p-6">
-        <Link href="/dashboard/poslodavci" className="underline">
-          ← Nazad na poslodavce
-        </Link>
-        <p className="text-red-600 mt-4">Greška pri učitavanju poslodavca.</p>
-      </div>
-    )
-  }
-
-  const employerId = client.employer_id || ''
-
-  let inspections: Inspection[] = []
-  let inspectionsErrorMessage = ''
-
-  if (employerId) {
-    const result = await supabase
-      .from('inspections')
-      .select('id, inspection_date, status, client_name, advisor_name, created_at')
-      .eq('employer_id', employerId)
-      .order('inspection_date', { ascending: false })
-
-    if (result.error) {
-      inspectionsErrorMessage = result.error.message
-    } else {
-      inspections = result.data || []
+    if (!naziv.trim()) {
+      setMessage('❌ Unesi naziv poslodavca.')
+      return
     }
-  }
 
-  const advisorName =
-    inspections.find((i) => i.advisor_name && i.advisor_name.trim() !== '')
-      ?.advisor_name || ''
+    setSaving(true)
+
+    const { data: employer, error: employerError } = await supabase
+      .from('employers')
+      .insert({
+        name: naziv.trim(),
+      })
+      .select('id')
+      .single()
+
+    if (employerError || !employer) {
+      setSaving(false)
+      setMessage(`❌ Greška employers: ${employerError?.message}`)
+      return
+    }
+
+    const { error: clientError } = await supabase.from('klijenti').insert({
+      naziv: naziv.trim(),
+      aktivan: true,
+      employer_id: employer.id,
+    })
+
+    setSaving(false)
+
+    if (clientError) {
+      setMessage(`❌ Greška klijenti: ${clientError.message}`)
+      return
+    }
+
+    setMessage('✅ Poslodavac je sačuvan.')
+
+    setTimeout(() => {
+      router.push('/dashboard/poslodavci')
+      router.refresh()
+    }, 700)
+  }
 
   return (
-    <div className="p-6 space-y-6">
-      <Link href="/dashboard/poslodavci" className="underline">
-        ← Nazad na poslodavce
-      </Link>
+    <div style={{ padding: 30, maxWidth: 600 }}>
+      <Link href="/dashboard/poslodavci">← Nazad na poslodavce</Link>
 
-      <div className="rounded-xl border p-5 bg-white">
-        <h1 className="text-2xl font-bold">{client.naziv}</h1>
+      <h1>Dodaj poslodavca</h1>
 
-        <p className="mt-2 text-sm">
-          Status:{' '}
-          <span className={client.aktivan ? 'text-green-600' : 'text-red-600'}>
-            {client.aktivan ? 'Aktivan' : 'Neaktivan'}
-          </span>
-        </p>
+      <form onSubmit={save}>
+        <input
+          value={naziv}
+          onChange={(e) => setNaziv(e.target.value)}
+          placeholder="Naziv poslodavca"
+          style={inputStyle}
+        />
 
-        {!employerId ? (
-          <p className="mt-3 text-sm text-red-600">
-            Nema employer_id veze za ovog poslodavca.
-          </p>
-        ) : null}
-      </div>
-
-      <div className="rounded-xl border p-5 bg-white">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold">Dnevne kontrole</h2>
-
-          <Link
-            href={`/dashboard/poslodavci/${clientId}/kontrole/nova`}
-            className="bg-black text-white px-4 py-2 rounded-lg text-sm"
+        {message && (
+          <p
+            style={{
+              color: message.startsWith('✅') ? 'green' : 'red',
+              fontWeight: 'bold',
+            }}
           >
-            Nova kontrola
-          </Link>
-        </div>
-
-        {!employerId ? (
-          <p className="text-sm text-red-600">Nema employer_id.</p>
-        ) : inspectionsErrorMessage ? (
-          <p className="text-sm text-red-600">Greška: {inspectionsErrorMessage}</p>
-        ) : inspections.length === 0 ? (
-          <p className="text-sm text-gray-600">Nema kontrola za ovog poslodavca.</p>
-        ) : (
-          <div className="space-y-2">
-            {inspections.map((inspection) => (
-              <div key={inspection.id} className="border rounded-lg p-3 flex justify-between">
-                <div>
-                  <p className="text-sm">
-                    Datum:{' '}
-                    {inspection.inspection_date
-                      ? new Date(inspection.inspection_date).toLocaleDateString('sr-RS')
-                      : '-'}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Status: {inspection.status || 'u toku'}
-                  </p>
-                </div>
-
-                <Link href={`/dashboard/kontrole/${inspection.id}`} className="underline text-sm">
-                  Otvori
-                </Link>
-              </div>
-            ))}
-          </div>
+            {message}
+          </p>
         )}
-      </div>
 
-      <div className="rounded-xl border p-5 bg-white">
-        <h2 className="text-lg font-semibold mb-3">Mesečni izveštaj</h2>
-
-        {employerId ? (
-          <MonthlyReportButton employerId={employerId} advisorName={advisorName} />
-        ) : (
-          <p className="text-sm text-red-600">Mesečni izveštaj nije moguć bez employer_id.</p>
-        )}
-      </div>
+        <button type="submit" disabled={saving} style={buttonStyle}>
+          {saving ? 'Snimanje...' : 'Sačuvaj poslodavca'}
+        </button>
+      </form>
     </div>
   )
+}
+
+const inputStyle = {
+  width: '100%',
+  padding: 12,
+  marginBottom: 12,
+  borderRadius: 10,
+  border: '1px solid #ccc',
+  fontSize: 16,
+  boxSizing: 'border-box' as const,
+}
+
+const buttonStyle = {
+  width: '100%',
+  padding: 16,
+  backgroundColor: '#16a34a',
+  color: 'white',
+  border: 'none',
+  borderRadius: 10,
+  fontWeight: 'bold',
+  fontSize: 16,
+  cursor: 'pointer',
 }
