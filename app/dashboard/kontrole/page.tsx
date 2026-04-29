@@ -34,10 +34,10 @@ export default function KontrolePage() {
 
       const { data, error } = await supabase
         .from('inspections')
-        .eq('locked', false)
         .select(
           'id, client_name, object_name, advisor_name, inspection_date, status'
         )
+        .eq('locked', false)
         .gte('inspection_date', startDate)
         .lt('inspection_date', endDate)
         .order('inspection_date', { ascending: false })
@@ -60,7 +60,7 @@ export default function KontrolePage() {
       <h1>Dnevne BZR kontrole</h1>
 
       <p style={{ color: '#555' }}>
-        Prikazuju se samo kontrole iz tekućeg meseca.
+        Prikazuju se samo kontrole iz tekućeg meseca (nezaključane).
       </p>
 
       {loading && <p>Učitavanje...</p>}
