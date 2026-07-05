@@ -55,9 +55,10 @@ export default function MonthlyReportButton({
   }, [emailSuggestions, email]);
 
   const handleOpen = () => {
-    const url = `/api/mesecni-izvestaj?employer_id=${employerId}&month=${month}&advisor_name=${advisorName}`;
-    window.open(url, "_blank");
-  };
+  const url = `/api/mesecni-izvestaj?employer_id=${employerId}&month=${month}&advisor_name=${advisorName}`;
+
+  window.open(url, "_blank");
+};
 
   const handleSend = async () => {
     try {

@@ -1,9 +1,13 @@
-import { redirect } from 'next/navigation'
+import { redirect } from "next/navigation";
 
-export default function RedirectNovaKontrola({
-  params,
-}: {
-  params: { id: string }
-}) {
-  redirect(`/dashboard/poslodavci/${params.id}/kontrole/nova`)
+type Props = {
+  params: Promise<{
+    id: string;
+  }>;
+};
+
+export default async function RedirectNovaKontrola({ params }: Props) {
+  const { id } = await params;
+
+  redirect(`/dashboard/poslodavci/${id}/kontrole/nova`);
 }
