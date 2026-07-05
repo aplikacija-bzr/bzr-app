@@ -63,6 +63,7 @@ export default function InspectionDetailPage() {
 
   useEffect(() => {
     const saved = localStorage.getItem('daily_email_history')
+
     if (saved) {
       try {
         setEmailHistory(JSON.parse(saved))
@@ -88,7 +89,10 @@ export default function InspectionDetailPage() {
         setObjectName(inspection.object_name || '')
         setAdvisorName(inspection.advisor_name || '')
 
-        const d = new Date(inspection.inspection_date || inspection.created_at)
+        const d = new Date(
+          inspection.inspection_date || inspection.created_at
+        )
+
         setInspectionDate(
           `${String(d.getDate()).padStart(2, '0')}.${String(
             d.getMonth() + 1
@@ -131,8 +135,12 @@ export default function InspectionDetailPage() {
     }
   }, [inspectionId])
 
-  const unansweredCount = items.filter((item) => !answers[item.id]).length
-  const allAnswered = items.length > 0 && unansweredCount === 0
+  const unansweredCount = items.filter(
+    (item) => !answers[item.id]
+  ).length
+
+  const allAnswered =
+    items.length > 0 && unansweredCount === 0
 
   const pdfPhotoUrls = useMemo(() => {
     return photos
@@ -153,12 +161,20 @@ export default function InspectionDetailPage() {
     }))
   }, [items, answers, comments])
 
-  const handleAnswer = async (id: string, value: 'da' | 'ne') => {
-    setAnswers((prev) => ({ ...prev, [id]: value }))
+  const handleAnswer = async (
+    id: string,
+    value: 'da' | 'ne'
+  ) => {
+    setAnswers((prev) => ({
+      ...prev,
+      [id]: value,
+    }))
 
     await fetch('/api/inspection-answers', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({
         inspection_id: inspectionId,
         checklist_item_id: id,
@@ -168,15 +184,23 @@ export default function InspectionDetailPage() {
     })
   }
 
-  const handleComment = (id: string, value: string) => {
-    setComments((prev) => ({ ...prev, [id]: value }))
+  const handleComment = (
+    id: string,
+    value: string
+  ) => {
+    setComments((prev) => ({
+      ...prev,
+      [id]: value,
+    }))
 
     clearTimeout(commentTimeouts.current[id])
 
     commentTimeouts.current[id] = setTimeout(async () => {
       await fetch('/api/inspection-answers', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           inspection_id: inspectionId,
           checklist_item_id: id,
@@ -186,13 +210,14 @@ export default function InspectionDetailPage() {
       })
     }, 600)
   }
-
-  const saveInspection = async () => {
+    const saveInspection = async () => {
     setSaveMessage('')
     setSaveError('')
 
     if (!allAnswered) {
-      setSaveError(`Nisu sva pitanja odgovorena (${unansweredCount}).`)
+      setSaveError(
+        `Nisu sva pitanja odgovorena (${unansweredCount}).`
+      )
       return
     }
 
@@ -201,20 +226,30 @@ export default function InspectionDetailPage() {
     try {
       const res = await fetch('/api/inspection-complete', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inspection_id: inspectionId }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          inspection_id: inspectionId,
+        }),
       })
 
       const data = await res.json()
 
       if (!res.ok) {
-        setSaveError(data?.error || 'Greška pri snimanju kontrole.')
+        setSaveError(
+          data?.error || 'Greška pri snimanju kontrole.'
+        )
       } else {
-        setSaveMessage('Kontrola je uspešno sačuvana.')
+        setSaveMessage(
+          'Kontrola je uspešno sačuvana.'
+        )
         setStatus('completed')
       }
     } catch (err: any) {
-      setSaveError(err?.message || 'Greška pri snimanju kontrole.')
+      setSaveError(
+        err?.message || 'Greška pri snimanju kontrole.'
+      )
     } finally {
       setSaving(false)
     }
@@ -225,78 +260,124 @@ export default function InspectionDetailPage() {
     setEmailError('')
 
     if (!recipientEmail) {
-      setEmailError('Email nije poslat: unesi email primaoca.')
+      setEmailError(
+        'Email nije poslat: unesi email primaoca.'
+      )
       return
     }
 
     setSendingEmail(true)
 
     try {
-      const res = await fetch('/api/send-inspection-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          inspection_id: inspectionId,
-          to: recipientEmail,
-          items: pdfItems,
-          photos: pdfPhotoUrls,
-          companyName: clientName,
-          employerName: clientName,
-          advisorName,
-          inspectionDate,
-        }),
-      })
+      const res = await fetch(
+        '/api/send-inspection-email',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            inspection_id: inspectionId,
+            to: recipientEmail,
+            items: pdfItems,
+            photos: pdfPhotoUrls,
+            companyName: clientName,
+            employerName: clientName,
+            advisorName,
+            inspectionDate,
+          }),
+        }
+      )
 
       const data = await res.json()
 
       if (!res.ok) {
-        setEmailError(`Email nije poslat: ${data?.error || 'nepoznata greška.'}`)
+        setEmailError(
+          `Email nije poslat: ${
+            data?.error || 'nepoznata greška.'
+          }`
+        )
         return
       }
 
       const newHistory = [
         recipientEmail,
-        ...emailHistory.filter((e) => e !== recipientEmail),
-      ].slice(0, 10)
+        ...emailHistory.filter(
+          (e) => e !== recipientEmail
+        ),
+      ].slice(0, 80)
 
       setEmailHistory(newHistory)
-      localStorage.setItem('daily_email_history', JSON.stringify(newHistory))
+
+      localStorage.setItem(
+        'daily_email_history',
+        JSON.stringify(newHistory)
+      )
 
       setEmailMessage('Email je uspešno poslat.')
     } catch (err: any) {
-      setEmailError(`Email nije poslat: ${err?.message || 'greška.'}`)
+      setEmailError(
+        `Email nije poslat: ${
+          err?.message || 'greška.'
+        }`
+      )
     } finally {
       setSendingEmail(false)
     }
   }
 
   if (loading) {
-    return <div style={{ padding: 20 }}>Učitavanje...</div>
+    return (
+      <div
+        style={{
+          padding: 24,
+          fontSize: 22,
+        }}
+      >
+        Učitavanje...
+      </div>
+    )
   }
 
   return (
-    <div style={{ padding: 20, paddingBottom: 150, maxWidth: 950, margin: 'auto' }}>
+    <div
+      style={{
+        padding: 20,
+        paddingBottom: 170,
+        maxWidth: 950,
+        margin: 'auto',
+        backgroundColor: '#f8fafc',
+        color: '#111827',
+        minHeight: '100vh',
+      }}
+    >
       <div style={{ marginBottom: 16 }}>
-        <Link href="/dashboard/poslodavci">← Nazad na poslodavce</Link>
+        <Link
+          href="/dashboard/poslodavci"
+          style={{
+            display: 'inline-block',
+            padding: '10px 14px',
+            border: '2px solid #111827',
+            borderRadius: 10,
+            color: '#111827',
+            textDecoration: 'none',
+            fontWeight: 'bold',
+            backgroundColor: '#ffffff',
+          }}
+        >
+          ← Nazad na poslodavce
+        </Link>
       </div>
 
-      <h1 style={{ marginBottom: 16 }}>Kontrolna lista</h1>
-
-      <div
+      <h1
         style={{
-          padding: 16,
-          border: '1px solid #ddd',
-          borderRadius: 12,
-          backgroundColor: '#fafafa',
-          marginBottom: 20,
+          marginBottom: 16,
+          fontSize: 30,
+          color: '#111827',
         }}
       >
-        <p>Poslodavac: <b>{clientName || '-'}</b></p>
-        <p>Objekat: <b>{objectName || '-'}</b></p>
-        <p>Savetnik: <b>{advisorName || '-'}</b></p>
-        <p>Datum: <b>{inspectionDate || '-'}</b></p>
-        <p>Status: <b>{status === 'completed' ? 'SAČUVANA' : 'U TOKU'}</b></p>
-      </div>
+        Kontrolna lista
+      </h1>
 
       {items.map((item, i) => {
         const ans = answers[item.id]
@@ -305,47 +386,87 @@ export default function InspectionDetailPage() {
           <div
             key={item.id}
             style={{
-              marginBottom: 20,
-              padding: 18,
-              borderRadius: 14,
+              marginBottom: 22,
+              padding: 20,
+              borderRadius: 16,
               backgroundColor:
-                ans === 'da' ? '#e6ffe6' : ans === 'ne' ? '#ffe5e5' : '#fff',
-              boxShadow: '0 4px 10px rgba(0,0,0,0.08)',
-              border: '1px solid #ddd',
+                ans === 'da'
+                  ? '#ffffff'
+                  : ans === 'ne'
+                  ? '#fff7f7'
+                  : '#ffffff',
+              boxShadow:
+                '0 4px 12px rgba(0,0,0,0.12)',
+              border:
+                ans === 'da'
+                  ? '3px solid #16a34a'
+                  : ans === 'ne'
+                  ? '3px solid #dc2626'
+                  : '3px solid #94a3b8',
             }}
           >
-            <div style={{ fontSize: 18, marginBottom: 12 }}>
+            <div
+              style={{
+                fontSize: 23,
+                marginBottom: 16,
+                color: '#111827',
+                fontWeight: 800,
+                lineHeight: 1.35,
+              }}
+            >
               <b>{i + 1}.</b> {item.title}
             </div>
 
-            <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+            <div
+              style={{
+                display: 'flex',
+                gap: 12,
+                marginBottom: 14,
+              }}
+            >
               <button
-                onClick={() => handleAnswer(item.id, 'da')}
+                onClick={() =>
+                  handleAnswer(item.id, 'da')
+                }
                 style={{
                   flex: 1,
-                  padding: 16,
-                  fontSize: 18,
+                  padding: 20,
+                  fontSize: 22,
                   fontWeight: 'bold',
-                  borderRadius: 10,
-                  border: '2px solid #16a34a',
-                  backgroundColor: ans === 'da' ? '#16a34a' : '#fff',
-                  color: ans === 'da' ? '#fff' : '#111',
+                  borderRadius: 12,
+                  border: '3px solid #15803d',
+                  backgroundColor:
+                    ans === 'da'
+                      ? '#16a34a'
+                      : '#ffffff',
+                  color:
+                    ans === 'da'
+                      ? '#ffffff'
+                      : '#111827',
                 }}
               >
                 DA
               </button>
 
               <button
-                onClick={() => handleAnswer(item.id, 'ne')}
+                onClick={() =>
+                  handleAnswer(item.id, 'ne')
+                }
                 style={{
                   flex: 1,
-                  padding: 16,
-                  fontSize: 18,
+                  padding: 20,
+                  fontSize: 22,
                   fontWeight: 'bold',
-                  borderRadius: 10,
-                  border: '2px solid #dc2626',
-                  backgroundColor: ans === 'ne' ? '#dc2626' : '#fff',
-                  color: ans === 'ne' ? '#fff' : '#111',
+                  borderRadius: 12,
+                  border: '3px solid #b91c1c',
+                  backgroundColor:
+                    ans === 'ne'
+                      ? '#dc2626'
+                      : '#ffffff',
+                  color:
+                    ans === 'ne'
+                      ? '#ffffff'
+                      : '#111827',
                 }}
               >
                 NE
@@ -354,15 +475,19 @@ export default function InspectionDetailPage() {
 
             <textarea
               value={comments[item.id] || ''}
-              onChange={(e) => handleComment(item.id, e.target.value)}
+              onChange={(e) =>
+                handleComment(item.id, e.target.value)
+              }
               placeholder="Komentar..."
               rows={4}
               style={{
                 width: '100%',
-                padding: 12,
-                borderRadius: 10,
-                border: '1px solid #ccc',
-                fontSize: 16,
+                padding: 16,
+                borderRadius: 12,
+                border: '3px solid #64748b',
+                fontSize: 20,
+                color: '#111827',
+                backgroundColor: '#ffffff',
                 boxSizing: 'border-box',
               }}
             />
@@ -370,83 +495,90 @@ export default function InspectionDetailPage() {
         )
       })}
 
-      <PDFDownloadLink
-        document={
-          <InspectionPdf
-            title="DNEVNA BZR KONTROLNA LISTA"
-            items={pdfItems}
-            companyName={clientName}
-            employerName={clientName}
-            advisorName={advisorName}
-            inspectionDate={inspectionDate}
-            photos={pdfPhotoUrls}
-          />
-        }
-        fileName="dnevna_kontrola.pdf"
+      <PhotoUpload
+        inspectionId={inspectionId}
+        onUploaded={loadPhotos}
+      />
+
+      <div
+        style={{
+          marginTop: 24,
+          padding: 18,
+          border: '2px solid #cbd5e1',
+          borderRadius: 14,
+          backgroundColor: '#ffffff',
+        }}
       >
-        {({ loading }) => (
-          <button
-            style={{
-              width: '100%',
-              padding: 16,
-              backgroundColor: '#2563eb',
-              color: 'white',
-              border: 'none',
-              borderRadius: 10,
-              fontSize: 17,
-              fontWeight: 'bold',
-              marginBottom: 24,
-            }}
-          >
-            {loading ? 'Priprema PDF...' : 'Preuzmi PDF'}
-          </button>
-        )}
-      </PDFDownloadLink>
-
-      <PhotoUpload inspectionId={inspectionId} onUploaded={loadPhotos} />
-
-      <div style={{ marginTop: 24, padding: 16, border: '1px solid #ddd', borderRadius: 12 }}>
-        <h3>Fotografije</h3>
-
-        <button
-          onClick={loadPhotos}
-          type="button"
+        <h3
           style={{
-            padding: '10px 14px',
-            backgroundColor: '#111827',
-            color: 'white',
-            border: 'none',
-            borderRadius: 8,
-            marginBottom: 12,
+            fontSize: 24,
+            color: '#111827',
           }}
         >
-          Osveži fotografije
-        </button>
+          Fotografije
+        </h3>
 
         {loadingPhotos ? (
           <p>Učitavanje fotografija...</p>
         ) : photos.length === 0 ? (
           <p>Nema dodatih fotografija.</p>
         ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 16,
+            }}
+          >
             {photos.map((photo) => {
-              const url = getImageUrl(photo.file_path || photo.file_url)
+              const url = getImageUrl(
+                photo.file_path || photo.file_url
+              )
 
               return (
-                <div key={photo.id}>
-                  <a href={url} target="_blank" rel="noreferrer">
+                <div
+                  key={photo.id}
+                  style={{ width: 210 }}
+                >
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     <img
                       src={url}
-                      alt="Fotografija kontrole"
+                      alt="Fotografija"
                       style={{
-                        width: 190,
-                        height: 140,
+                        width: 210,
+                        height: 155,
                         objectFit: 'cover',
-                        borderRadius: 10,
-                        border: '1px solid #ccc',
-                        display: 'block',
+                        borderRadius: 12,
+                        border:
+                          '2px solid #64748b',
                       }}
                     />
+                  </a>
+
+                  <a
+                    href={url}
+                    download
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: 'block',
+                      marginTop: 8,
+                      padding: '10px 12px',
+                      backgroundColor:
+                        '#2563eb',
+                      color: 'white',
+                      borderRadius: 10,
+                      textDecoration: 'none',
+                      fontSize: 15,
+                      fontWeight: 'bold',
+                      textAlign: 'center',
+                    }}
+                  >
+                    Preuzmi fotografiju
                   </a>
                 </div>
               )
@@ -454,27 +586,67 @@ export default function InspectionDetailPage() {
           </div>
         )}
       </div>
-
-      <div style={{ marginTop: 30, padding: 16, border: '1px solid #ddd', borderRadius: 12, backgroundColor: '#fafafa' }}>
-        <h3>Pošalji PDF mailom</h3>
+            <div
+        style={{
+          marginTop: 24,
+          padding: 18,
+          border: '2px solid #cbd5e1',
+          borderRadius: 14,
+          backgroundColor: '#ffffff',
+        }}
+      >
+        <h3
+          style={{
+            fontSize: 24,
+            color: '#111827',
+          }}
+        >
+          Pošalji PDF mailom
+        </h3>
 
         <select
           value={recipientEmail}
-          onChange={(e) => setRecipientEmail(e.target.value)}
-          style={{ width: '100%', padding: 12, marginBottom: 10, borderRadius: 10 }}
+          onChange={(e) =>
+            setRecipientEmail(e.target.value)
+          }
+          style={{
+            width: '100%',
+            padding: 14,
+            marginBottom: 12,
+            borderRadius: 12,
+            border: '2px solid #64748b',
+            fontSize: 18,
+          }}
         >
-          <option value="">Izaberi ranije korišćen email...</option>
+          <option value="">
+            Izaberi ranije korišćen email...
+          </option>
+
           {emailHistory.map((email) => (
-            <option key={email} value={email}>{email}</option>
+            <option
+              key={email}
+              value={email}
+            >
+              {email}
+            </option>
           ))}
         </select>
 
         <input
           type="email"
           value={recipientEmail}
-          onChange={(e) => setRecipientEmail(e.target.value)}
+          onChange={(e) =>
+            setRecipientEmail(e.target.value)
+          }
           placeholder="Ili unesi novi email"
-          style={{ width: '100%', padding: 12, marginBottom: 10, borderRadius: 10, boxSizing: 'border-box' }}
+          style={{
+            width: '100%',
+            padding: 14,
+            marginBottom: 12,
+            borderRadius: 12,
+            border: '2px solid #64748b',
+            fontSize: 18,
+          }}
         />
 
         <button
@@ -482,76 +654,52 @@ export default function InspectionDetailPage() {
           disabled={sendingEmail}
           style={{
             width: '100%',
-            padding: 16,
-            backgroundColor: sendingEmail ? '#6b7280' : '#111827',
+            padding: 18,
+            backgroundColor:
+              sendingEmail
+                ? '#6b7280'
+                : '#111827',
             color: 'white',
             border: 'none',
-            borderRadius: 10,
-            fontSize: 17,
+            borderRadius: 12,
+            fontSize: 20,
             fontWeight: 'bold',
           }}
         >
-          {sendingEmail ? 'Slanje...' : 'Pošalji PDF mailom'}
+          {sendingEmail
+            ? 'Slanje...'
+            : 'Pošalji PDF mailom'}
         </button>
 
         {emailMessage && (
-          <div style={{ marginTop: 12, padding: 12, backgroundColor: '#d1fae5', color: '#065f46', borderRadius: 10, fontWeight: 'bold' }}>
+          <div
+            style={{
+              marginTop: 12,
+              padding: 14,
+              backgroundColor: '#d1fae5',
+              color: '#065f46',
+              borderRadius: 12,
+              fontWeight: 'bold',
+              fontSize: 18,
+            }}
+          >
             ✅ {emailMessage}
           </div>
         )}
 
         {emailError && (
-          <div style={{ marginTop: 12, padding: 12, backgroundColor: '#fee2e2', color: '#991b1b', borderRadius: 10, fontWeight: 'bold' }}>
+          <div
+            style={{
+              marginTop: 12,
+              padding: 14,
+              backgroundColor: '#fee2e2',
+              color: '#991b1b',
+              borderRadius: 12,
+              fontWeight: 'bold',
+              fontSize: 18,
+            }}
+          >
             ❌ {emailError}
-          </div>
-        )}
-      </div>
-
-      <div
-        style={{
-          position: 'fixed',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'white',
-          borderTop: '1px solid #ddd',
-          padding: 14,
-          zIndex: 99999,
-          boxShadow: '0 -4px 12px rgba(0,0,0,0.15)',
-        }}
-      >
-        <button
-          onClick={saveInspection}
-          disabled={!allAnswered || saving}
-          style={{
-            width: '100%',
-            padding: 18,
-            fontSize: 20,
-            fontWeight: 'bold',
-            backgroundColor: !allAnswered || saving ? '#999' : '#16a34a',
-            color: 'white',
-            border: 'none',
-            borderRadius: 14,
-          }}
-        >
-          {saving ? 'Snimanje...' : 'Snimi kontrolu'}
-        </button>
-
-        {!allAnswered && (
-          <div style={{ marginTop: 8, color: '#991b1b', fontWeight: 'bold' }}>
-            Nisu odgovorena sva pitanja: {unansweredCount}
-          </div>
-        )}
-
-        {saveMessage && (
-          <div style={{ marginTop: 8, color: '#065f46', fontWeight: 'bold' }}>
-            ✅ {saveMessage}
-          </div>
-        )}
-
-        {saveError && (
-          <div style={{ marginTop: 8, color: '#991b1b', fontWeight: 'bold' }}>
-            ❌ {saveError}
           </div>
         )}
       </div>

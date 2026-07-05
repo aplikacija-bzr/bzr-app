@@ -10,7 +10,15 @@ import {
 } from "@react-pdf/renderer";
 
 Font.registerHyphenationCallback((word) => [word]);
+Font.register({
+  family: "DejaVu",
+  src: "https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37/ttf/DejaVuSans.ttf",
+});
 
+Font.register({
+  family: "DejaVuBold",
+  src: "https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37/ttf/DejaVuSans-Bold.ttf",
+});
 type MonthlyControl = {
   id: string;
   date: string;
@@ -32,6 +40,8 @@ type Props = {
   employerName: string;
   advisorName: string;
   monthLabel: string;
+  reportNumber: string;
+  issueDate: string;
   controls: MonthlyControl[];
   summary: {
     totalControls: number;
@@ -47,7 +57,7 @@ const styles = StyleSheet.create({
   page: {
     padding: 28,
     fontSize: 10,
-    fontFamily: "Helvetica",
+    fontFamily: "DejaVu",
     color: "#111827",
   },
 
@@ -193,6 +203,13 @@ const styles = StyleSheet.create({
     marginTop: 6,
     color: "#374151",
   },
+  pageNumber: {
+  position: "absolute",
+  bottom: 15,
+  right: 28,
+  fontSize: 9,
+  color: "#666666",
+},
 });
 
 function fmtPercent(value: number) {
@@ -208,6 +225,8 @@ export default function MonthlyInspectionPdf({
   employerName,
   advisorName,
   monthLabel,
+  reportNumber,
+  issueDate,
   controls,
   summary,
 }: Props) {
@@ -226,10 +245,12 @@ export default function MonthlyInspectionPdf({
 </Text>
 
         <View style={styles.infoBox}>
-          <Text style={styles.infoText}>Poslodavac: {employerName}</Text>
-          <Text style={styles.infoText}>Firma: {companyName}</Text>
-          <Text style={styles.infoText}>Mesec: {monthLabel}</Text>
-          <Text style={styles.infoText}>Savetnik: {advisorName || "-"}</Text>
+          <Text style={styles.infoText}>Broj izveštaja: {reportNumber}</Text>
+          <Text style={styles.infoText}>Datum izdavanja: {issueDate}</Text>
+<Text style={styles.infoText}>Poslodavac: {employerName}</Text>
+<Text style={styles.infoText}>Poslodavac sa licencom: {companyName}</Text>
+<Text style={styles.infoText}>Mesec: {monthLabel}</Text>
+<Text style={styles.infoText}>Savetnik: {advisorName || "-"}</Text>
         </View>
 
         {controls.map((control) => (
@@ -384,11 +405,20 @@ export default function MonthlyInspectionPdf({
         </View>
 
         <Text style={styles.note}>
-          Ocena se određuje na osnovu procentualnog učešća odgovora "NE" u
-          ukupnom broju pitanja obuhvaćenih svim izvršenim dnevnim BZR
-          kontrolama tokom izveštajnog perioda.
-        </Text>
-      </Page>
-    </Document>
-  );
+  Ocena se određuje na osnovu procentualnog učešća odgovora "NE" u
+  ukupnom broju pitanja obuhvaćenih svim izvršenim dnevnim BZR
+  kontrolama tokom izveštajnog perioda.
+</Text>
+
+<Text
+  style={styles.pageNumber}
+  fixed
+  render={({ pageNumber, totalPages }) =>
+    `Strana ${pageNumber} / ${totalPages}`
+  }
+/>
+
+</Page>
+</Document>
+);
 }

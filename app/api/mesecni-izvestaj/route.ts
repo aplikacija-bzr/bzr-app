@@ -200,12 +200,28 @@ export async function GET(req: NextRequest) {
     const totalYes = controls.reduce((sum, c) => sum + c.yesCount, 0);
     const totalNo = controls.reduce((sum, c) => sum + c.noCount, 0);
     const noPercent = totalQuestions > 0 ? (totalNo / totalQuestions) * 100 : 0;
+    const monthNumber = month.split("-")[1] || "00";
+
+const now = new Date();
+
+// Datum koji će se prikazivati u PDF-u
+const issueDate = now.toLocaleDateString("sr-RS");
+
+// Datum koji ulazi u broj izveštaja
+const reportDateForNumber = now
+  .toISOString()
+  .slice(0, 10)
+  .replaceAll("-", "");
+
+const reportNumber = `M-${monthNumber}-${reportDateForNumber}-001`;
     console.log("=== NOVI MONTHLY PDF ===");
     const pdfElement = React.createElement(MonthlyInspectionPdf, {
       companyName: "INPRO BZR",
       employerName,
       advisorName: advisorName || "-",
       monthLabel: formatMonthLabel(month),
+      reportNumber,
+      issueDate,
       controls,
       summary: {
         totalControls,
