@@ -10,6 +10,7 @@ import {
 } from "@react-pdf/renderer";
 
 Font.registerHyphenationCallback((word) => [word]);
+
 Font.register({
   family: "DejaVu",
   src: "https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37/ttf/DejaVuSans.ttf",
@@ -19,6 +20,7 @@ Font.register({
   family: "DejaVuBold",
   src: "https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37/ttf/DejaVuSans-Bold.ttf",
 });
+
 type MonthlyControl = {
   id: string;
   date: string;
@@ -40,8 +42,8 @@ type Props = {
   employerName: string;
   advisorName: string;
   monthLabel: string;
-  reportNumber: string;
-  issueDate: string;
+  reportNumber?: string;
+  issueDate?: string;
   controls: MonthlyControl[];
   summary: {
     totalControls: number;
@@ -70,7 +72,7 @@ const styles = StyleSheet.create({
 
   logo: {
     fontSize: 18,
-    fontWeight: "bold",
+    fontFamily: "DejaVuBold",
   },
 
   subtitle: {
@@ -80,7 +82,7 @@ const styles = StyleSheet.create({
 
   title: {
     fontSize: 16,
-    fontWeight: "bold",
+    fontFamily: "DejaVuBold",
     marginTop: 12,
     marginBottom: 10,
     textAlign: "center",
@@ -99,7 +101,7 @@ const styles = StyleSheet.create({
 
   sectionTitle: {
     fontSize: 12,
-    fontWeight: "bold",
+    fontFamily: "DejaVuBold",
     marginTop: 12,
     marginBottom: 6,
     backgroundColor: "#E5E7EB",
@@ -108,7 +110,7 @@ const styles = StyleSheet.create({
 
   smallTitle: {
     fontSize: 10,
-    fontWeight: "bold",
+    fontFamily: "DejaVuBold",
     marginTop: 6,
     marginBottom: 4,
   },
@@ -122,7 +124,7 @@ const styles = StyleSheet.create({
 
   cellLabel: {
     width: "45%",
-    fontWeight: "bold",
+    fontFamily: "DejaVuBold",
   },
 
   cellValue: {
@@ -135,7 +137,7 @@ const styles = StyleSheet.create({
   },
 
   defectText: {
-    fontWeight: "bold",
+    fontFamily: "DejaVuBold",
   },
 
   defectComment: {
@@ -154,7 +156,6 @@ const styles = StyleSheet.create({
 
   tableHeader: {
     backgroundColor: "#E5E7EB",
-    fontWeight: "bold",
   },
 
   tableCell: {
@@ -164,6 +165,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#D1D5DB",
     fontSize: 8,
+  },
+
+  tableHeaderText: {
+    fontFamily: "DejaVuBold",
   },
 
   wDate: { width: "22%" },
@@ -180,7 +185,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#111827",
     fontSize: 12,
-    fontWeight: "bold",
+    fontFamily: "DejaVuBold",
     textAlign: "center",
   },
 
@@ -203,13 +208,14 @@ const styles = StyleSheet.create({
     marginTop: 6,
     color: "#374151",
   },
+
   pageNumber: {
-  position: "absolute",
-  bottom: 15,
-  right: 28,
-  fontSize: 9,
-  color: "#666666",
-},
+    position: "absolute",
+    bottom: 15,
+    right: 28,
+    fontSize: 9,
+    color: "#666666",
+  },
 });
 
 function fmtPercent(value: number) {
@@ -236,21 +242,25 @@ export default function MonthlyInspectionPdf({
         <View style={styles.header}>
           <Text style={styles.logo}>INPRO BZR</Text>
           <Text style={styles.subtitle}>Bezbednost i zdravlje na radu</Text>
-          <Text style={styles.subtitle}>d.o.o. Bajina Bašta</Text>
+          <Text style={styles.subtitle}>d.o.o. Bajina Basta</Text>
           <Text style={styles.subtitle}>office@inpro.rs</Text>
         </View>
 
-        <Text style={styles.title}>
-  MESEČNI BZR IZVEŠTAJ
-</Text>
+        <Text style={styles.title}>MESECNI BZR IZVESTAJ</Text>
 
         <View style={styles.infoBox}>
-          <Text style={styles.infoText}>Broj izveštaja: {reportNumber}</Text>
-          <Text style={styles.infoText}>Datum izdavanja: {issueDate}</Text>
-<Text style={styles.infoText}>Poslodavac: {employerName}</Text>
-<Text style={styles.infoText}>Poslodavac sa licencom: {companyName}</Text>
-<Text style={styles.infoText}>Mesec: {monthLabel}</Text>
-<Text style={styles.infoText}>Savetnik: {advisorName || "-"}</Text>
+          {reportNumber && (
+            <Text style={styles.infoText}>Broj izvestaja: {reportNumber}</Text>
+          )}
+          {issueDate && (
+            <Text style={styles.infoText}>Datum izdavanja: {issueDate}</Text>
+          )}
+          <Text style={styles.infoText}>Poslodavac: {employerName}</Text>
+          <Text style={styles.infoText}>
+            Poslodavac sa licencom: {companyName}
+          </Text>
+          <Text style={styles.infoText}>Mesec: {monthLabel}</Text>
+          <Text style={styles.infoText}>Savetnik: {advisorName || "-"}</Text>
         </View>
 
         {controls.map((control) => (
@@ -259,34 +269,38 @@ export default function MonthlyInspectionPdf({
               DNEVNA KONTROLA OD {control.date}
             </Text>
 
-            <Text style={styles.smallTitle}>Zaključak dnevne kontrole</Text>
+            <Text style={styles.smallTitle}>Zakljucak dnevne kontrole</Text>
 
             <View>
               <View style={styles.row}>
                 <Text style={styles.cellLabel}>Ukupan broj pitanja:</Text>
                 <Text style={styles.cellValue}>{control.totalQuestions}</Text>
               </View>
+
               <View style={styles.row}>
                 <Text style={styles.cellLabel}>Broj odgovora DA:</Text>
                 <Text style={styles.cellValue}>{control.yesCount}</Text>
               </View>
+
               <View style={styles.row}>
                 <Text style={styles.cellLabel}>Broj odgovora NE:</Text>
                 <Text style={styles.cellValue}>{control.noCount}</Text>
               </View>
+
               <View style={styles.row}>
                 <Text style={styles.cellLabel}>Procenat odgovora NE:</Text>
                 <Text style={styles.cellValue}>
                   {fmtPercent(control.noPercent)}
                 </Text>
               </View>
+
               <View style={styles.row}>
                 <Text style={styles.cellLabel}>Ocena:</Text>
                 <Text style={styles.cellValue}>{control.grade}</Text>
               </View>
             </View>
 
-            <Text style={styles.smallTitle}>Uočeni nedostaci</Text>
+            <Text style={styles.smallTitle}>Uoceni nedostaci</Text>
 
             {control.defects.length > 0 ? (
               control.defects.map((d, index) => (
@@ -316,25 +330,29 @@ export default function MonthlyInspectionPdf({
           </View>
         ))}
 
-        <Text style={styles.sectionTitle}>ZAKLJUČAK ZA CEO MESEC</Text>
+        <Text style={styles.sectionTitle}>ZAKLJUCAK ZA CEO MESEC</Text>
 
         <View>
           <View style={styles.row}>
-            <Text style={styles.cellLabel}>Ukupan broj izvršenih kontrola:</Text>
+            <Text style={styles.cellLabel}>Ukupan broj izvrsenih kontrola:</Text>
             <Text style={styles.cellValue}>{summary.totalControls}</Text>
           </View>
+
           <View style={styles.row}>
             <Text style={styles.cellLabel}>Ukupan broj pitanja:</Text>
             <Text style={styles.cellValue}>{summary.totalQuestions}</Text>
           </View>
+
           <View style={styles.row}>
             <Text style={styles.cellLabel}>Ukupan broj odgovora DA:</Text>
             <Text style={styles.cellValue}>{summary.totalYes}</Text>
           </View>
+
           <View style={styles.row}>
             <Text style={styles.cellLabel}>Ukupan broj odgovora NE:</Text>
             <Text style={styles.cellValue}>{summary.totalNo}</Text>
           </View>
+
           <View style={styles.row}>
             <Text style={styles.cellLabel}>Procenat odgovora NE:</Text>
             <Text style={styles.cellValue}>{fmtPercent(summary.noPercent)}</Text>
@@ -347,11 +365,51 @@ export default function MonthlyInspectionPdf({
 
         <View style={styles.table}>
           <View style={[styles.tableRow, styles.tableHeader]}>
-            <Text style={[styles.tableCell, styles.wDate]}>Datum</Text>
-            <Text style={[styles.tableCell, styles.wSmall]}>Pitanja</Text>
-            <Text style={[styles.tableCell, styles.wSmall]}>DA</Text>
-            <Text style={[styles.tableCell, styles.wSmall]}>NE</Text>
-            <Text style={[styles.tableCell, styles.wGrade]}>Ocena</Text>
+            <Text
+              style={[
+                styles.tableCell,
+                styles.wDate,
+                styles.tableHeaderText,
+              ]}
+            >
+              Datum
+            </Text>
+            <Text
+              style={[
+                styles.tableCell,
+                styles.wSmall,
+                styles.tableHeaderText,
+              ]}
+            >
+              Pitanja
+            </Text>
+            <Text
+              style={[
+                styles.tableCell,
+                styles.wSmall,
+                styles.tableHeaderText,
+              ]}
+            >
+              DA
+            </Text>
+            <Text
+              style={[
+                styles.tableCell,
+                styles.wSmall,
+                styles.tableHeaderText,
+              ]}
+            >
+              NE
+            </Text>
+            <Text
+              style={[
+                styles.tableCell,
+                styles.wGrade,
+                styles.tableHeaderText,
+              ]}
+            >
+              Ocena
+            </Text>
           </View>
 
           {controls.map((c) => (
@@ -367,17 +425,51 @@ export default function MonthlyInspectionPdf({
           ))}
 
           <View style={[styles.tableRow, styles.tableHeader]}>
-            <Text style={[styles.tableCell, styles.wDate]}>UKUPNO</Text>
-            <Text style={[styles.tableCell, styles.wSmall]}>
+            <Text
+              style={[
+                styles.tableCell,
+                styles.wDate,
+                styles.tableHeaderText,
+              ]}
+            >
+              UKUPNO
+            </Text>
+            <Text
+              style={[
+                styles.tableCell,
+                styles.wSmall,
+                styles.tableHeaderText,
+              ]}
+            >
               {summary.totalQuestions}
             </Text>
-            <Text style={[styles.tableCell, styles.wSmall]}>
+            <Text
+              style={[
+                styles.tableCell,
+                styles.wSmall,
+                styles.tableHeaderText,
+              ]}
+            >
               {summary.totalYes}
             </Text>
-            <Text style={[styles.tableCell, styles.wSmall]}>
+            <Text
+              style={[
+                styles.tableCell,
+                styles.wSmall,
+                styles.tableHeaderText,
+              ]}
+            >
               {summary.totalNo}
             </Text>
-            <Text style={[styles.tableCell, styles.wGrade]}>{summary.grade}</Text>
+            <Text
+              style={[
+                styles.tableCell,
+                styles.wGrade,
+                styles.tableHeaderText,
+              ]}
+            >
+              {summary.grade}
+            </Text>
           </View>
         </View>
 
@@ -385,10 +477,10 @@ export default function MonthlyInspectionPdf({
 
         <View style={styles.table}>
           {[
-            ["0–1 %", "MERE ZA BZR ODLIČNE"],
-            [">1–5 %", "MERE ZA BZR ZADOVOLJAVAJUĆE"],
+            ["0–1 %", "MERE ZA BZR ODLICNE"],
+            [">1–5 %", "MERE ZA BZR ZADOVOLJAVAJUCE"],
             [">5–8 %", "MERE ZA BZR PRIHVATLJIVE"],
-            [">8–10 %", "MERE ZA BZR NEZADOVOLJAVAJUĆE"],
+            [">8–10 %", "MERE ZA BZR NEZADOVOLJAVAJUCE"],
             ["Preko 10 %", "MERE ZA BZR NEPRIHVATLJIVE"],
           ].map(([range, grade]) => (
             <View
@@ -405,20 +497,19 @@ export default function MonthlyInspectionPdf({
         </View>
 
         <Text style={styles.note}>
-  Ocena se određuje na osnovu procentualnog učešća odgovora "NE" u
-  ukupnom broju pitanja obuhvaćenih svim izvršenim dnevnim BZR
-  kontrolama tokom izveštajnog perioda.
-</Text>
+          Ocena se odredjuje na osnovu procentualnog ucesca odgovora "NE" u
+          ukupnom broju pitanja obuhvacenih svim izvrsenim dnevnim BZR
+          kontrolama tokom izvestajnog perioda.
+        </Text>
 
-<Text
-  style={styles.pageNumber}
-  fixed
-  render={({ pageNumber, totalPages }) =>
-    `Strana ${pageNumber} / ${totalPages}`
-  }
-/>
-
-</Page>
-</Document>
-);
+        <Text
+          style={styles.pageNumber}
+          fixed
+          render={({ pageNumber, totalPages }) =>
+            `Strana ${pageNumber} / ${totalPages}`
+          }
+        />
+      </Page>
+    </Document>
+  );
 }
