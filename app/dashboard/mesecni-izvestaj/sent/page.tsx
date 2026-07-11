@@ -18,10 +18,16 @@ type ReportRow = {
   recipient_email: string;
   sent_at: string;
   inspections_count: number | null;
-  employers: {
-    id: string;
-    name: string;
-  }[] | null; // 🔥 BITNO: ARRAY
+  employers:
+    | {
+        id: string;
+        name: string;
+      }
+    | {
+        id: string;
+        name: string;
+      }[]
+    | null;
 };
 
 export default async function SentMesecniIzvestajiPage({
@@ -181,7 +187,9 @@ export default async function SentMesecniIzvestajiPage({
 
           <tbody>
             {reports.map((r, i) => {
-              const employer = r.employers?.[0]; // 🔥 BITNO
+              const employer = Array.isArray(r.employers)
+  ? r.employers[0]
+  : r.employers; 
 
               return (
                 <tr key={`${r.employer_id}-${r.sent_at}-${i}`}>

@@ -85,8 +85,14 @@ export default async function DashboardPage() {
         </Link>
 
         <Link href="/dashboard/email-logovi" style={buttonStyle}>
-          📧 Pregled poslatih emailova
+          📧 Pregled poslatih dnevnih izvestaja
         </Link>
+        <Link
+  href="/dashboard/mesecni-izvestaj/sent"
+  style={buttonStyle}
+>
+  📄 Pregled poslatih mesecnih izvestaja
+</Link>
       </div>
     </div>
   )
