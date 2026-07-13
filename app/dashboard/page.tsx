@@ -1,11 +1,6 @@
 import Link from 'next/link'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/utils/supabase/server'
 import type { CSSProperties } from 'react'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 function getTodayRange() {
   const start = new Date()
@@ -21,6 +16,7 @@ function getTodayRange() {
 }
 
 export default async function DashboardPage() {
+  const supabase = await createClient()
   const { start, end } = getTodayRange()
 
   const { count: todayEmails } = await supabase
@@ -72,27 +68,29 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <p style={{ marginTop: 26, marginBottom: 14 }}>Izaberi opciju:</p>
+      <p style={{ marginTop: 26, marginBottom: 14 }}>
+        Izaberi opciju:
+      </p>
 
       <div style={buttonsWrapper}>
         <Link href="/dashboard/poslodavci" style={buttonStyle}>
           🔍 Pretraga poslodavaca
         </Link>
 
-        {/* 🔥 NOVO DUGME */}
         <Link href="/dashboard/poslodavci/novi" style={greenButton}>
           ➕ Dodaj poslodavca
         </Link>
 
         <Link href="/dashboard/email-logovi" style={buttonStyle}>
-          📧 Pregled poslatih dnevnih izvestaja
+          📧 Pregled poslatih dnevnih izveštaja
         </Link>
+
         <Link
-  href="/dashboard/mesecni-izvestaj/sent"
-  style={buttonStyle}
->
-  📄 Pregled poslatih mesecnih izvestaja
-</Link>
+          href="/dashboard/mesecni-izvestaj/sent"
+          style={buttonStyle}
+        >
+          📄 Pregled poslatih mesečnih izveštaja
+        </Link>
       </div>
     </div>
   )

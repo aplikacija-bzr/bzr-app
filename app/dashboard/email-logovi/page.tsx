@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/utils/supabase/server'
 import type { CSSProperties } from 'react'
 import ResendEmailButton from '@/app/components/ResendEmailButton'
 
@@ -20,10 +20,6 @@ type PageProps = {
   }>
 }
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 function formatDate(value: string | null) {
   if (!value) return ''
@@ -38,8 +34,10 @@ function formatDate(value: string | null) {
 }
 
 export default async function EmailLogoviPage({ searchParams }: PageProps) {
+    const supabase = await createClient()
   const params = searchParams ? await searchParams : {}
   const search = (params.q || '').trim()
+    
 
   let query = supabase
     .from('email_logs')
