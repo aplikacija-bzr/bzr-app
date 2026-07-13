@@ -155,3 +155,184 @@ Podaci o zaposlenom unose se samo jednom i koriste se u svim modulima.
 - Po prestanku radnog odnosa postavlja se `active = false`.
 - Istorija svih obuka, lekarskih pregleda i drugih evidencija ostaje sačuvana.
 - Jedan zaposleni može imati više radnih mesta preko tabele `employee_job_positions`.
+
+
+# AUTOMATSKO PRAĆENJE ROKOVA OSPOSOBLJAVANJA
+
+## 1. Namena
+
+Sistem svakodnevno proverava rokove osposobljavanja zaposlenih i utvrđuje kod kojih poslodavaca je potrebno izvršiti osposobljavanje u narednih sedam kalendarskih dana.
+
+Automatski podsetnik šalje se na email adresu:
+
+office@inpro.rs
+
+Cilj funkcionalnosti je da doo INPRO blagovremeno dobije pregled zaposlenih kojima predstoji osposobljavanje i organizuje obuku pre isteka roka.
+
+---
+
+## 2. Podaci koji se prikazuju u podsetniku
+
+Za svakog zaposlenog prikazuju se:
+
+- naziv poslodavca,
+- ime i prezime zaposlenog,
+- radno mesto,
+- vrsta osposobljavanja,
+- datum prethodnog osposobljavanja,
+- rok za naredno osposobljavanje.
+
+Podaci u emailu grupišu se po poslodavcima.
+
+Primer:
+
+POSLODAVAC: DOO PRIMER
+
+1. Marko Marković
+   Radno mesto: Elektromonter
+   Vrsta osposobljavanja: Periodično osposobljavanje
+   Rok: 20.07.2026.
+
+---
+
+## 3. Poslovna pravila
+
+### PR-01
+
+U dnevni podsetnik ulaze zaposleni kojima je rok za naredno osposobljavanje u periodu od dana slanja podsetnika do narednih sedam kalendarskih dana.
+
+### PR-02
+
+Neaktivni poslodavci ne ulaze u podsetnik.
+
+### PR-03
+
+Neaktivni zaposleni ne ulaze u podsetnik.
+
+### PR-04
+
+Radno mesto mora biti povezano sa konkretnim osposobljavanjem zaposlenog.
+
+### PR-05
+
+Ako zaposleni obavlja više poslova ili radi na više radnih mesta, svako osposobljavanje prikazuje se posebno.
+
+### PR-06
+
+Email se šalje jednom dnevno.
+
+### PR-07
+
+Ako nema zaposlenih kojima osposobljavanje dospeva u narednih sedam dana, email se ne šalje.
+
+### PR-08
+
+Svako uspešno ili neuspešno slanje mora biti evidentirano.
+
+---
+
+## 4. Potrebni podaci
+
+Evidencija osposobljavanja zaposlenih mora da sadrži najmanje sledeća polja:
+
+- employee_id,
+- employer_id,
+- job_position_id,
+- training_catalog_id,
+- training_date,
+- valid_until,
+- next_training_date,
+- status,
+- active.
+
+Polje `next_training_date` koristi se kao osnov za dnevnu proveru rokova.
+
+---
+
+## 5. Automatsko računanje roka
+
+Rok za naredno osposobljavanje računa se na osnovu:
+
+datum izvršenog osposobljavanja
++
+propisani ili definisani period važenja osposobljavanja
+
+Ako vrsta osposobljavanja nema unapred definisan period važenja, datum narednog osposobljavanja može se uneti ručno.
+
+---
+
+## 6. Dnevni email podsetnik
+
+Predmet emaila:
+
+INPRO BZR – Osposobljavanja u narednih 7 dana
+
+Primalac:
+
+office@inpro.rs
+
+Email mora da sadrži:
+
+- datum izveštaja,
+- period koji je obuhvaćen proverom,
+- broj poslodavaca,
+- ukupan broj zaposlenih,
+- pregled zaposlenih grupisan po poslodavcima.
+
+---
+
+## 7. Evidencija slanja
+
+Za evidenciju automatskih podsetnika koristiće se posebna tabela:
+
+`training_reminder_logs`
+
+Tabela će sadržati:
+
+- id,
+- reminder_date,
+- period_start,
+- period_end,
+- recipient_email,
+- employers_count,
+- employees_count,
+- status,
+- error_message,
+- sent_at,
+- created_at.
+
+---
+
+## 8. Veza sa Matricom osposobljenosti
+
+Isti rokovi koriste se za prikaz statusa u Matrici osposobljenosti:
+
+- zeleno – osposobljavanje važi duže od sedam dana,
+- žuto – osposobljavanje dospeva u narednih sedam dana,
+- crveno – rok je istekao ili osposobljavanje nije izvršeno.
+
+---
+
+## 9. Planirana tehnička realizacija
+
+Predviđena arhitektura:
+
+Vercel Cron
+→ API ruta za dnevnu proveru
+→ Supabase upit
+→ grupisanje zaposlenih po poslodavcima
+→ formiranje emaila
+→ slanje na office@inpro.rs
+→ upis rezultata u evidenciju slanja
+
+Planirani naziv API rute:
+
+`app/api/training-reminders/route.ts`
+
+---
+
+## 10. Napomene
+
+Vreme svakodnevnog slanja biće definisano pre implementacije automatizacije.
+
+Ova funkcionalnost neće se implementirati dok prethodno ne budu završene tabele za zaposlene, radna mesta, katalog osposobljavanja i evidenciju osposobljavanja zaposlenih.
