@@ -336,3 +336,268 @@ Planirani naziv API rute:
 Vreme svakodnevnog slanja biće definisano pre implementacije automatizacije.
 
 Ova funkcionalnost neće se implementirati dok prethodno ne budu završene tabele za zaposlene, radna mesta, katalog osposobljavanja i evidenciju osposobljavanja zaposlenih.
+
+# KATALOG OSPOSOBLJAVANJA
+
+SQL naziv tabele:
+
+`training_catalog`
+
+## 1. Namena
+
+Tabela `training_catalog` predstavlja centralni šifarnik svih vrsta osposobljavanja koje se vode u informacionom sistemu INPRO BZR.
+
+Katalog obuhvata:
+
+- osposobljavanje za bezbedan i zdrav rad,
+- zaštitu od požara,
+- pružanje prve pomoći,
+- LOTO postupke,
+- rad na visini,
+- rad pod naponom,
+- rukovanje opremom i radnim mašinama,
+- rad sa opasnim hemikalijama,
+- druga stručna i posebna osposobljavanja.
+
+Tabela definiše osnovna pravila svake vrste osposobljavanja, uključujući:
+
+- naziv i šifru,
+- kategoriju,
+- zakonski osnov,
+- potrebu za teorijskom obukom,
+- potrebu za praktičnom obukom,
+- potrebu za testom znanja,
+- potrebu za praktičnom proverom,
+- period važenja,
+- obaveznu evidenciju i dokumentaciju.
+
+Tabela ne sadrži podatke o konkretnim zaposlenima niti o održanim osposobljavanjima.
+
+---
+
+## 2. Polja
+
+| Polje | Tip | Obavezno | Podrazumevana vrednost | Opis |
+|---|---|---:|---|---|
+| `id` | UUID | DA | automatski | Primarni ključ |
+| `code` | TEXT | DA | — | Jedinstvena šifra osposobljavanja |
+| `name` | TEXT | DA | — | Naziv osposobljavanja |
+| `category_code` | TEXT | DA | `BZR` | Šifra kategorije osposobljavanja |
+| `description` | TEXT | NE | NULL | Detaljan opis osposobljavanja |
+| `legal_basis` | TEXT | NE | NULL | Zakon, pravilnik, član ili drugi pravni osnov |
+| `requires_theory` | BOOLEAN | DA | TRUE | Da li je obavezan teorijski deo |
+| `requires_practical_training` | BOOLEAN | DA | FALSE | Da li je obavezna praktična obuka |
+| `requires_test` | BOOLEAN | DA | TRUE | Da li je obavezna provera znanja testom |
+| `requires_practical_check` | BOOLEAN | DA | FALSE | Da li je obavezna praktična provera osposobljenosti |
+| `renewal_required` | BOOLEAN | DA | FALSE | Da li se osposobljavanje periodično obnavlja |
+| `default_validity_months` | INTEGER | NE | NULL | Podrazumevani period važenja u mesecima |
+| `certificate_required` | BOOLEAN | DA | FALSE | Da li se izdaje potvrda ili sertifikat |
+| `official_record_required` | BOOLEAN | DA | TRUE | Da li se vodi u propisanoj evidenciji |
+| `active` | BOOLEAN | DA | TRUE | Da li se osposobljavanje trenutno koristi |
+| `sort_order` | INTEGER | DA | 0 | Redosled prikaza u aplikaciji |
+| `created_at` | TIMESTAMPTZ | DA | automatski | Datum i vreme kreiranja |
+| `updated_at` | TIMESTAMPTZ | DA | automatski | Datum i vreme poslednje izmene |
+
+---
+
+## 3. Šifre kategorija
+
+U prvoj verziji sistema koriste se sledeće šifre kategorija:
+
+| Šifra | Naziv kategorije |
+|---|---|
+| `BZR` | Bezbednost i zdravlje na radu |
+| `ZOP` | Zaštita od požara |
+| `PRVA_POMOC` | Prva pomoć |
+| `LOTO` | Lockout/Tagout postupak |
+| `RAD_NA_VISINI` | Rad na visini |
+| `RAD_POD_NAPONOM` | Rad pod naponom |
+| `RADNE_MASINE` | Rukovanje radnim mašinama i opremom |
+| `HEMIKALIJE` | Rad sa opasnim hemikalijama |
+| `POSEBNO` | Posebna i interna osposobljavanja |
+
+U budućoj verziji kategorije se mogu izdvojiti u poseban šifarnik.
+
+---
+
+## 4. Poslovna pravila
+
+### PR-01 – Jedinstvena šifra
+
+Polje `code` mora biti jedinstveno u celom sistemu.
+
+Preporučeni format šifre:
+
+`KATEGORIJA_NAZIV`
+
+Primeri:
+
+- `BZR_PRETHODNO`
+- `BZR_PERIODICNO`
+- `BZR_PROMENA_RADNOG_MESTA`
+- `BZR_NOVA_OPREMA`
+- `LOTO_OSNOVNO`
+- `RAD_NA_VISINI_OSNOVNO`
+
+---
+
+### PR-02 – Jedinstven naziv
+
+Naziv osposobljavanja mora biti jedinstven.
+
+Nije dozvoljeno postojanje dve aktivne stavke sa istim nazivom i različitim šiframa.
+
+---
+
+### PR-03 – Obavezna kategorija
+
+Svaka vrsta osposobljavanja mora pripadati jednoj kategoriji.
+
+---
+
+### PR-04 – Periodično obnavljanje
+
+Ako je:
+
+`renewal_required = TRUE`
+
+polje `default_validity_months` mora sadržati pozitivan broj meseci, osim kada se rok za naredno osposobljavanje određuje pojedinačno.
+
+---
+
+### PR-05 – Osposobljavanje bez automatskog roka
+
+Ako osposobljavanje nema unapred određen period važenja:
+
+`default_validity_months = NULL`
+
+U tom slučaju datum narednog osposobljavanja može se:
+
+- uneti ručno,
+- utvrditi prema aktu o proceni rizika,
+- utvrditi prema posebnom propisu,
+- utvrditi prema odluci poslodavca,
+- pokrenuti nastupanjem određenog događaja.
+
+---
+
+### PR-06 – Test znanja
+
+Ako je:
+
+`requires_test = TRUE`
+
+pre završetka osposobljavanja mora postojati evidentiran rezultat testa.
+
+---
+
+### PR-07 – Praktična provera
+
+Ako je:
+
+`requires_practical_check = TRUE`
+
+osposobljavanje se ne može označiti kao uspešno završeno bez evidentiranog rezultata praktične provere.
+
+---
+
+### PR-08 – Teorijski i praktični deo
+
+Jedno osposobljavanje može sadržati:
+
+- samo teorijski deo,
+- teorijski i praktični deo,
+- praktičnu proveru,
+- test znanja,
+- kombinaciju navedenih elemenata.
+
+Najmanje jedan od elemenata osposobljavanja mora biti aktivan.
+
+---
+
+### PR-09 – Evidencija
+
+Ako je:
+
+`official_record_required = TRUE`
+
+nakon uspešno završenog osposobljavanja mora se formirati odgovarajuća evidencija zaposlenog.
+
+Za osposobljavanje iz oblasti BZR sistem mora omogućiti generisanje odgovarajućeg obrasca evidencije.
+
+---
+
+### PR-10 – Deaktiviranje umesto brisanja
+
+Stavka kataloga koja je već korišćena u evidencijama ne sme se fizički brisati.
+
+Takva stavka se isključuje postavljanjem:
+
+`active = FALSE`
+
+Istorijski podaci ostaju sačuvani.
+
+---
+
+### PR-11 – Aktivne stavke
+
+Na ekranima za unos novih osposobljavanja prikazuju se samo stavke kod kojih je:
+
+`active = TRUE`
+
+Neaktivne stavke ostaju vidljive u istorijskim evidencijama.
+
+---
+
+### PR-12 – Rok narednog osposobljavanja
+
+Kada postoji definisan period važenja, datum narednog osposobljavanja računa se na osnovu:
+
+datum uspešno završenog osposobljavanja
++
+`default_validity_months`
+
+Dobijeni datum može se izmeniti samo uz evidentiranu napomenu ili odgovarajuće ovlašćenje.
+---
+## 5. Veze
+
+Tabela `training_catalog` biće povezana sa sledećim tabelama:
+
+| Tabela | Veza | Namena |
+|---|---|---|
+| `training_programs` | jedan prema više | Programi za određenu vrstu osposobljavanja |
+| `training_tests` | jedan prema više | Testovi koji se koriste za proveru znanja |
+| `training_sessions` | jedan prema više | Održana osposobljavanja |
+| `employee_trainings` | jedan prema više | Evidencije osposobljavanja zaposlenih |
+| `training_certificates` | jedan prema više | Potvrde i sertifikati |
+| `training_documents` | jedan prema više | Dokumentacija povezana sa osposobljavanjem |
+
+Jedna stavka kataloga može imati više programa i testova, ali se za konkretno održano osposobljavanje bira tačno određeni program i odgovarajući test.
+
+---
+
+## 6. Indeksi
+
+Planirani indeksi:
+
+- primarni ključ na polju `id`,
+- jedinstveni indeks na polju `code`,
+- jedinstveni indeks na polju `name`,
+- indeks na polju `category_code`,
+- indeks na polju `active`,
+- složeni indeks na poljima `active` i `sort_order`.
+
+Plan:
+
+```text
+PRIMARY KEY (id)
+
+UNIQUE (code)
+
+UNIQUE (name)
+
+INDEX (category_code)
+
+INDEX (active)
+
+INDEX (active, sort_order)

@@ -183,3 +183,121 @@ Svaka stabilna verzija mora imati:
 ✔ Praktičan test
 
 Tek tada se verzija smatra završenom.
+
+# v1.2.0
+
+Datum:
+
+14.07.2026.
+
+Status:
+
+🟡 U RAZVOJU
+
+---
+
+## Dodato
+
+### Arhitektura
+
+- Refaktorisane dashboard stranice
+- Dashboard koristi server Supabase klijent
+- Service Role uklonjen iz dashboard stranica
+
+---
+
+### Baza podataka
+
+- Uvedena struktura foldera /database
+- migrations
+- seed
+- views
+- functions
+- triggers
+
+---
+
+### Dokumentacija
+
+Dodati dokumenti:
+
+- OBUKA_BZR_ARHITEKTURA_BAZE.md
+
+---
+
+Projektovana tabela:
+
+- training_catalog
+
+Projektovana automatizacija:
+
+- dnevni email podsetnici
+- matrica osposobljenosti
+- automatsko praćenje rokova
+
+---
+
+## Sledeći razvoj
+
+- SQL migracija 001_training_catalog.sql
+- Programi osposobljavanja
+- Testovi
+- Evidencija osposobljavanja# v1.2.0
+
+Datum:
+
+14.07.2026.
+
+Status:
+
+🟡 U RAZVOJU
+
+---
+
+## Dodato
+
+### Arhitektura
+
+- Refaktorisane dashboard stranice
+- Dashboard koristi server Supabase klijent
+- Service Role uklonjen iz dashboard stranica
+
+---
+
+### Baza podataka
+
+- Uvedena struktura foldera /database
+- migrations
+- seed
+- views
+- functions
+- triggers
+
+---
+
+### Dokumentacija
+
+Dodati dokumenti:
+
+- OBUKA_BZR_ARHITEKTURA_BAZE.md
+
+---
+
+Projektovana tabela:
+
+- training_catalog
+
+Projektovana automatizacija:
+
+- dnevni email podsetnici
+- matrica osposobljenosti
+- automatsko praćenje rokova
+
+---
+
+## Sledeći razvoj
+
+- SQL migracija 001_training_catalog.sql
+- Programi osposobljavanja
+- Testovi
+- Evidencija osposobljavanja
