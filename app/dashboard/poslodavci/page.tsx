@@ -5,14 +5,30 @@ import type { CSSProperties } from 'react'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
+type PoslodavciPageProps = {
+  searchParams?: Promise<{
+    search?: string
+  }>
+}
 
+export default async function PoslodavciPage({
+  searchParams,
+}: PoslodavciPageProps) {
+  const supabase = await createClient()
 
-export default async function PoslodavciPage() {
-const supabase = await createClient()
-  const { data: clients, error } = await supabase
-    .from('klijenti')
+  const params = searchParams ? await searchParams : {}
+  const search = params.search?.trim() ?? ''
+
+  let query = supabase
+    .from('employers')
     .select('*')
-    .order('naziv', { ascending: true })
+    .order('name', { ascending: true })
+
+  if (search) {
+    query = query.ilike('name', `%${search}%`)
+  }
+
+  const { data: clients, error } = await query
 
   return (
     <div style={{ padding: 30 }}>
@@ -32,10 +48,18 @@ const supabase = await createClient()
         </p>
       )}
 
-      <form method="GET" style={{ marginBottom: 20, display: 'flex', gap: 10 }}>
+      <form
+        method="GET"
+        style={{
+          marginBottom: 20,
+          display: 'flex',
+          gap: 10,
+        }}
+      >
         <input
           type="text"
           name="search"
+          defaultValue={search}
           placeholder="Pretraga po nazivu..."
           style={{
             padding: 10,
@@ -53,25 +77,30 @@ const supabase = await createClient()
       <div style={gridStyle}>
         {clients?.map((client) => (
           <div key={client.id} style={cardStyle}>
-            <h3 style={{ marginTop: 0 }}>{client.naziv}</h3>
+            <h3 style={{ marginTop: 0 }}>{client.name}</h3>
 
             <p>
               Status:{' '}
               <span
                 style={{
-                  color: client.aktivan ? 'green' : 'red',
+                  color: client.active ? 'green' : 'red',
                   fontWeight: 'bold',
                 }}
               >
-                {client.aktivan ? 'Aktivan' : 'Neaktivan'}
+                {client.active ? 'Aktivan' : 'Neaktivan'}
               </span>
             </p>
 
             {client.email && <p>Email: {client.email}</p>}
 
-            {client.kontakt_lice && <p>Kontakt lice: {client.kontakt_lice}</p>}
+            {client.contact_person && (
+              <p>Kontakt lice: {client.contact_person}</p>
+            )}
 
-            <Link href={`/dashboard/poslodavci/${client.id}`} style={openButton}>
+            <Link
+              href={`/dashboard/poslodavci/${client.id}`}
+              style={openButton}
+            >
               Otvori
             </Link>
           </div>
