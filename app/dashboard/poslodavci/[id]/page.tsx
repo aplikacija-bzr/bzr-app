@@ -11,8 +11,8 @@ export default async function ClientPage({
   const { id: clientId } = await params
 
   const { data: client, error } = await supabase
-    .from('klijenti')
-    .select('id, naziv, aktivan, employer_id')
+    .from('employers')
+    .select('id, name, active')
     .eq('id', clientId)
     .single()
 
@@ -20,44 +20,49 @@ export default async function ClientPage({
     return (
       <div style={{ padding: 30 }}>
         <Link href="/dashboard/poslodavci">← Nazad</Link>
-        <p style={{ color: 'red' }}>Greška pri učitavanju poslodavca.</p>
+        <p style={{ color: 'red' }}>
+          Greška pri učitavanju poslodavca.
+        </p>
       </div>
     )
   }
 
-  const employerId = client.employer_id || ''
+  const employerId = client.id
 
-  const { data: inspections } = employerId
-    ? await supabase
-        .from('inspections')
-        .select('id, inspection_date, status')
-        .eq('employer_id', employerId)
-        .order('inspection_date', { ascending: false })
-    : { data: [] }
+  const { data: inspections } = await supabase
+    .from('inspections')
+    .select('id, inspection_date, status')
+    .eq('employer_id', employerId)
+    .order('inspection_date', { ascending: false })
 
   return (
     <div style={{ padding: 30 }}>
-      <Link href="/dashboard/poslodavci">← Nazad na poslodavce</Link>
+      <Link href="/dashboard/poslodavci">
+        ← Nazad na poslodavce
+      </Link>
 
       <div style={card}>
-        <h1>{client.naziv}</h1>
+        <h1>{client.name}</h1>
 
         <p>
           Status:{' '}
-          <b style={{ color: client.aktivan ? 'green' : 'red' }}>
-            {client.aktivan ? 'Aktivan' : 'Neaktivan'}
+          <b
+            style={{
+              color: client.active ? 'green' : 'red',
+            }}
+          >
+            {client.active ? 'Aktivan' : 'Neaktivan'}
           </b>
         </p>
-
-        {!employerId && (
-          <p style={{ color: 'red' }}>
-            Nema employer_id veze za ovog poslodavca.
-          </p>
-        )}
       </div>
 
       <div style={card}>
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+          }}
+        >
           <h2>Dnevne kontrole</h2>
 
           <Link
@@ -68,20 +73,22 @@ export default async function ClientPage({
           </Link>
         </div>
 
-        {!employerId ? (
-          <p style={{ color: 'red' }}>Nema employer_id.</p>
-        ) : inspections?.length === 0 ? (
+        {inspections?.length === 0 ? (
           <p>Nema kontrola.</p>
         ) : (
           inspections?.map((i) => (
             <div key={i.id} style={row}>
               <span>
                 {i.inspection_date
-                  ? new Date(i.inspection_date).toLocaleDateString('sr-RS')
+                  ? new Date(
+                      i.inspection_date
+                    ).toLocaleDateString('sr-RS')
                   : '-'}
               </span>
 
-              <Link href={`/dashboard/kontrole/${i.id}`}>Otvori</Link>
+              <Link href={`/dashboard/kontrole/${i.id}`}>
+                Otvori
+              </Link>
             </div>
           ))
         )}
@@ -90,13 +97,10 @@ export default async function ClientPage({
       <div style={card}>
         <h2>Mesečni izveštaj</h2>
 
-        {employerId ? (
-          <MonthlyReportButton employerId={employerId} advisorName="" />
-        ) : (
-          <p style={{ color: 'red' }}>
-            Mesečni izveštaj nije moguć bez employer_id.
-          </p>
-        )}
+        <MonthlyReportButton
+          employerId={employerId}
+          advisorName=""
+        />
       </div>
     </div>
   )
