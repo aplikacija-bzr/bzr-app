@@ -494,7 +494,70 @@ export default function InspectionDetailPage() {
           </div>
         )
       })}
+<div
+  style={{
+    marginTop: 24,
+    marginBottom: 24,
+    padding: 18,
+    border: '2px solid #cbd5e1',
+    borderRadius: 14,
+    backgroundColor: '#ffffff',
+  }}
+>
+  <button
+    onClick={saveInspection}
+    disabled={saving || status === 'completed'}
+    style={{
+      width: '100%',
+      padding: 18,
+      backgroundColor:
+        status === 'completed' ? '#16a34a' : '#111827',
+      color: 'white',
+      border: 'none',
+      borderRadius: 12,
+      fontSize: 20,
+      fontWeight: 'bold',
+      cursor:
+        status === 'completed' ? 'default' : 'pointer',
+    }}
+  >
+    {saving
+      ? 'Čuvanje...'
+      : status === 'completed'
+      ? 'Kontrola je završena'
+      : 'Završi kontrolu'}
+  </button>
 
+  {saveMessage && (
+    <div
+      style={{
+        marginTop: 12,
+        padding: 14,
+        backgroundColor: '#d1fae5',
+        color: '#065f46',
+        borderRadius: 12,
+        fontWeight: 'bold',
+      }}
+    >
+      ✅ {saveMessage}
+    </div>
+  )}
+
+  {saveError && (
+    <div
+      style={{
+        marginTop: 12,
+        padding: 14,
+        backgroundColor: '#fee2e2',
+        color: '#991b1b',
+        borderRadius: 12,
+        fontWeight: 'bold',
+      }}
+    >
+      ❌ {saveError}
+    </div>
+  )}
+</div>
       <PhotoUpload
         inspectionId={inspectionId}
         onUploaded={loadPhotos}
