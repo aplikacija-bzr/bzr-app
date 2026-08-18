@@ -4,12 +4,12 @@ import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
-import { PDFDownloadLink } from '@react-pdf/renderer'
-import InspectionPdf from '@/app/components/InspectionPdf'
 import PhotoUpload from '@/app/components/inspection/PhotoUpload'
 
 const BUCKET = 'inspection-images'
-const SUPABASE_URL = 'https://awvrwilxbvibzyegwila.supabase.co'
+
+const SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 
 export default function InspectionDetailPage() {
   const params = useParams()
@@ -19,7 +19,8 @@ export default function InspectionDetailPage() {
   const [items, setItems] = useState<any[]>([])
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [comments, setComments] = useState<Record<string, string>>({})
-  const [status, setStatus] = useState<'draft' | 'completed'>('draft')
+  const [status, setStatus] =
+    useState<'draft' | 'completed'>('draft')
   const [loading, setLoading] = useState(true)
 
   const [clientName, setClientName] = useState('')
@@ -40,12 +41,18 @@ export default function InspectionDetailPage() {
   const [saveMessage, setSaveMessage] = useState('')
   const [saveError, setSaveError] = useState('')
 
-  const commentTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+  const commentTimeouts = useRef<
+    Record<string, ReturnType<typeof setTimeout>>
+  >({})
 
-  const getImageUrl = (path: string) => {
-    if (!path) return ''
-    if (path.startsWith('http')) return path
-    return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`
+  const getImageUrl = (value: string) => {
+    if (!value) return ''
+
+    if (value.startsWith('http')) {
+      return value
+    }
+
+    return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${value}`
   }
 
   const loadPhotos = async () => {
@@ -114,7 +121,10 @@ export default function InspectionDetailPage() {
       const c: Record<string, string> = {}
 
       answersData?.forEach((row: any) => {
-        if (row.answer) a[row.checklist_item_id] = row.answer
+        if (row.answer) {
+          a[row.checklist_item_id] = row.answer
+        }
+
         c[row.checklist_item_id] = row.comment || ''
       })
 
@@ -123,10 +133,13 @@ export default function InspectionDetailPage() {
       setComments(c)
 
       await loadPhotos()
+
       setLoading(false)
     }
 
-    if (inspectionId) load()
+    if (inspectionId) {
+      load()
+    }
 
     return () => {
       Object.values(commentTimeouts.current).forEach((timeout) => {
@@ -144,7 +157,9 @@ export default function InspectionDetailPage() {
 
   const pdfPhotoUrls = useMemo(() => {
     return photos
-      .map((p) => getImageUrl(p.file_path || p.file_url))
+      .map((p) =>
+        getImageUrl(p.file_url || p.file_path)
+      )
       .filter(Boolean)
   }, [photos])
 
@@ -210,7 +225,8 @@ export default function InspectionDetailPage() {
       })
     }, 600)
   }
-    const saveInspection = async () => {
+
+  const saveInspection = async () => {
     setSaveMessage('')
     setSaveError('')
 
@@ -390,9 +406,7 @@ export default function InspectionDetailPage() {
               padding: 20,
               borderRadius: 16,
               backgroundColor:
-                ans === 'da'
-                  ? '#ffffff'
-                  : ans === 'ne'
+                ans === 'ne'
                   ? '#fff7f7'
                   : '#ffffff',
               boxShadow:
@@ -494,70 +508,78 @@ export default function InspectionDetailPage() {
           </div>
         )
       })}
-<div
-  style={{
-    marginTop: 24,
-    marginBottom: 24,
-    padding: 18,
-    border: '2px solid #cbd5e1',
-    borderRadius: 14,
-    backgroundColor: '#ffffff',
-  }}
->
-  <button
-    onClick={saveInspection}
-    disabled={saving || status === 'completed'}
-    style={{
-      width: '100%',
-      padding: 18,
-      backgroundColor:
-        status === 'completed' ? '#16a34a' : '#111827',
-      color: 'white',
-      border: 'none',
-      borderRadius: 12,
-      fontSize: 20,
-      fontWeight: 'bold',
-      cursor:
-        status === 'completed' ? 'default' : 'pointer',
-    }}
-  >
-    {saving
-      ? 'Čuvanje...'
-      : status === 'completed'
-      ? 'Kontrola je završena'
-      : 'Završi kontrolu'}
-  </button>
 
-  {saveMessage && (
-    <div
-      style={{
-        marginTop: 12,
-        padding: 14,
-        backgroundColor: '#d1fae5',
-        color: '#065f46',
-        borderRadius: 12,
-        fontWeight: 'bold',
-      }}
-    >
-      ✅ {saveMessage}
-    </div>
-  )}
+      <div
+        style={{
+          marginTop: 24,
+          marginBottom: 24,
+          padding: 18,
+          border: '2px solid #cbd5e1',
+          borderRadius: 14,
+          backgroundColor: '#ffffff',
+        }}
+      >
+        <button
+          onClick={saveInspection}
+          disabled={
+            saving || status === 'completed'
+          }
+          style={{
+            width: '100%',
+            padding: 18,
+            backgroundColor:
+              status === 'completed'
+                ? '#16a34a'
+                : '#111827',
+            color: 'white',
+            border: 'none',
+            borderRadius: 12,
+            fontSize: 20,
+            fontWeight: 'bold',
+            cursor:
+              status === 'completed'
+                ? 'default'
+                : 'pointer',
+          }}
+        >
+          {saving
+            ? 'Čuvanje...'
+            : status === 'completed'
+            ? 'Kontrola je završena'
+            : 'Završi kontrolu'}
+        </button>
 
-  {saveError && (
-    <div
-      style={{
-        marginTop: 12,
-        padding: 14,
-        backgroundColor: '#fee2e2',
-        color: '#991b1b',
-        borderRadius: 12,
-        fontWeight: 'bold',
-      }}
-    >
-      ❌ {saveError}
-    </div>
-  )}
-</div>
+        {saveMessage && (
+          <div
+            style={{
+              marginTop: 12,
+              padding: 14,
+              backgroundColor: '#d1fae5',
+              color: '#065f46',
+              borderRadius: 12,
+              fontWeight: 'bold',
+            }}
+          >
+            ✅ {saveMessage}
+          </div>
+        )}
+
+        {saveError && (
+          <div
+            style={{
+              marginTop: 12,
+              padding: 14,
+              backgroundColor: '#fee2e2',
+              color: '#991b1b',
+              borderRadius: 12,
+              fontWeight: 'bold',
+            }}
+          >
+            ❌ {saveError}
+          </div>
+        )}
+      </div>
+
       <PhotoUpload
         inspectionId={inspectionId}
         onUploaded={loadPhotos}
@@ -595,13 +617,16 @@ export default function InspectionDetailPage() {
           >
             {photos.map((photo) => {
               const url = getImageUrl(
-                photo.file_path || photo.file_url
+                photo.file_url ||
+                  photo.file_path
               )
 
               return (
                 <div
                   key={photo.id}
-                  style={{ width: 210 }}
+                  style={{
+                    width: 210,
+                  }}
                 >
                   <a
                     href={url}
@@ -649,7 +674,8 @@ export default function InspectionDetailPage() {
           </div>
         )}
       </div>
-            <div
+
+      <div
         style={{
           marginTop: 24,
           padding: 18,
@@ -709,6 +735,7 @@ export default function InspectionDetailPage() {
             borderRadius: 12,
             border: '2px solid #64748b',
             fontSize: 18,
+            boxSizing: 'border-box',
           }}
         />
 
