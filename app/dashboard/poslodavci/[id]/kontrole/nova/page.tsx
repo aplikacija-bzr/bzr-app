@@ -43,18 +43,24 @@ export default function NovaKontrolaPage() {
       const { data: checklist, error: checklistError } =
         await supabase
           .from('checklists')
-          .select('id')
-          .limit(1)
-          .single()
+          .select('id, name')
+          .eq(
+            'id',
+            '00000000-0000-0000-0000-000000000001'
+          )
+          .maybeSingle()
 
       if (checklistError) {
         setError(checklistError.message)
         return
       }
 
-      if (checklist?.id) {
-        setChecklistId(checklist.id)
+      if (!checklist?.id) {
+        setError('BZR Kontrolna lista nije pronađena.')
+        return
       }
+
+      setChecklistId(checklist.id)
     }
 
     if (clientId) {
