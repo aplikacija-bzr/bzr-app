@@ -27,8 +27,8 @@ export default function NovaKontrolaPage() {
   useEffect(() => {
     const load = async () => {
       const { data, error } = await supabase
-        .from('klijenti')
-        .select('naziv, employer_id')
+        .from('employers')
+        .select('id, name')
         .eq('id', clientId)
         .single()
 
@@ -37,22 +37,29 @@ export default function NovaKontrolaPage() {
         return
       }
 
-      setNaziv(data?.naziv || '')
-      setEmployerId(data?.employer_id || '')
+      setNaziv(data?.name || '')
+      setEmployerId(data?.id || '')
 
-      // 🔥 UZMI PRVU CHECKLISTU
-      const { data: checklist } = await supabase
-        .from('checklists')
-        .select('id')
-        .limit(1)
-        .single()
+      const { data: checklist, error: checklistError } =
+        await supabase
+          .from('checklists')
+          .select('id')
+          .limit(1)
+          .single()
+
+      if (checklistError) {
+        setError(checklistError.message)
+        return
+      }
 
       if (checklist?.id) {
         setChecklistId(checklist.id)
       }
     }
 
-    if (clientId) load()
+    if (clientId) {
+      load()
+    }
   }, [clientId])
 
   const createInspection = async () => {
@@ -143,9 +150,17 @@ export default function NovaKontrolaPage() {
           style={inputStyle}
         />
 
-        {error && <p style={{ color: 'red' }}>❌ {error}</p>}
+        {error && (
+          <p style={{ color: 'red' }}>
+            ❌ {error}
+          </p>
+        )}
 
-        <button onClick={createInspection} disabled={saving} style={buttonStyle}>
+        <button
+          onClick={createInspection}
+          disabled={saving}
+          style={buttonStyle}
+        >
           {saving ? 'Kreiranje...' : 'Kreiraj kontrolu'}
         </button>
       </div>
