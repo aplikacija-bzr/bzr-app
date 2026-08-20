@@ -87,12 +87,10 @@ export default function LoginPage() {
       }
 
       if (profile.role === 'OPERATER') {
-        router.push(
-          '/dashboard/lekarski-pregledi'
-        )
-        router.refresh()
-        return
-      }
+  router.push('/dashboard')
+  router.refresh()
+  return
+}
 
       await supabase.auth.signOut()
 
