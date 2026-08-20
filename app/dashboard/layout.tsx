@@ -1,44 +1,50 @@
-import Link from "next/link";
+import { redirect } from 'next/navigation'
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#f9fafb" }}>
-      {/* NAVBAR */}
-      <div
-        style={{
-          backgroundColor: "white",
-          borderBottom: "1px solid #ddd",
-          padding: "12px 20px",
-          display: "flex",
-          gap: 20,
-          alignItems: "center",
-        }}
-      >
-        <Link href="/dashboard/poslodavci" style={linkStyle}>
-          Poslodavci
-        </Link>
+import { createClient } from '@/lib/supabase/server'
 
-        <Link href="/dashboard/kontrole" style={linkStyle}>
-          Kontrole
-        </Link>
-
-        <Link href="/dashboard/arhiva" style={linkStyle}>
-          Arhiva
-        </Link>
-      </div>
-
-      {/* CONTENT */}
-      <div style={{ padding: 20 }}>{children}</div>
-    </div>
-  );
+type DashboardLayoutProps = {
+  children: React.ReactNode
 }
 
-const linkStyle = {
-  textDecoration: "none",
-  fontWeight: "bold",
-  color: "#111",
-};
+export default async function DashboardLayout({
+  children,
+}: DashboardLayoutProps) {
+  const supabase =
+    await createClient()
+
+  const {
+    data: { user },
+    error: userError,
+  } =
+    await supabase.auth.getUser()
+
+  if (userError || !user) {
+    redirect('/login')
+  }
+
+  const {
+    data: profile,
+    error: profileError,
+  } =
+    await supabase
+      .from('user_profiles')
+      .select(`
+        id,
+        email,
+        full_name,
+        role,
+        active
+      `)
+      .eq('id', user.id)
+      .maybeSingle()
+
+  if (
+    profileError ||
+    !profile ||
+    !profile.active
+  ) {
+    redirect('/login')
+  }
+
+  return children
+}

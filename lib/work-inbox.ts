@@ -44,12 +44,22 @@ type MedicalExaminationRow = {
   id: string
   employer_id: string
   employee_id: string
+  employer_job_position_id: string | null
   examination_type: string
   next_examination_date: string
   reminder_date: string | null
   report_number: string | null
   fitness_assessment: string | null
   status: string
+}
+
+type WaitingMedicalSessionRow = {
+  id: string
+  session_number: string
+  employer_id: string
+  examination_type: string
+  status_id: number
+  created_at: string
 }
 
 type WorkEquipmentReportItemRow = {
@@ -531,6 +541,7 @@ async function getMedicalInboxItems():
         id,
         employer_id,
         employee_id,
+        employer_job_position_id,
         examination_type,
         next_examination_date,
         reminder_date,
@@ -564,8 +575,80 @@ async function getMedicalInboxItems():
   const rows =
     (data ?? []) as MedicalExaminationRow[]
 
+  const {
+    data: waitingSessionItemsData,
+    error: waitingSessionItemsError,
+  } =
+    await supabase
+      .from(
+        'medical_examination_session_items',
+      )
+      .select(`
+        employee_id,
+        employee_job_positions (
+          employer_job_position_id
+        ),
+        medical_examination_sessions!inner (
+          status_id
+        )
+      `)
+      .eq(
+        'medical_examination_sessions.status_id',
+        3,
+      )
+
+  if (waitingSessionItemsError) {
+    throw waitingSessionItemsError
+  }
+
+  const waitingKeys =
+    new Set<string>()
+
+  for (
+    const item of
+      waitingSessionItemsData ?? []
+  ) {
+    const employeeId =
+      item.employee_id
+
+    const employeeJobPositionRelation =
+      Array.isArray(
+        item.employee_job_positions
+      )
+        ? item.employee_job_positions[0]
+        : item.employee_job_positions
+
+    const employerJobPositionId =
+      employeeJobPositionRelation
+        ?.employer_job_position_id
+
+    if (
+      employeeId &&
+      employerJobPositionId
+    ) {
+      waitingKeys.add(
+        `${employeeId}:${employerJobPositionId}`,
+      )
+    }
+  }
+
+  const visibleRows =
+    rows.filter(
+      (row) => {
+        if (
+          !row.employer_job_position_id
+        ) {
+          return true
+        }
+
+        return !waitingKeys.has(
+          `${row.employee_id}:${row.employer_job_position_id}`,
+        )
+      },
+    )
+
   return Promise.all(
-    rows.map(
+    visibleRows.map(
       async (row) => {
         const [
           employerName,
@@ -644,6 +727,167 @@ async function getMedicalInboxItems():
 
           status:
             'not_started',
+        }
+      },
+    ),
+  )
+}
+
+// =====================================================
+// LEKARSKI PREGLEDI - ČEKAJU SE REZULTATI
+//
+// Prikazuju se sve sesije sa status_id = 3
+// (IN_PROGRESS).
+//
+// Takav postupak je već pokrenut i uput je
+// generisan, ali rezultati medicine rada još
+// nisu evidentirani.
+// =====================================================
+
+async function getWaitingMedicalSessionInboxItems():
+  Promise<WorkInboxItem[]> {
+  const supabase =
+    await createClient()
+
+  const { data, error } =
+    await supabase
+      .from(
+        'medical_examination_sessions',
+      )
+      .select(`
+        id,
+        session_number,
+        employer_id,
+        examination_type,
+        status_id,
+        created_at
+      `)
+      .eq(
+        'status_id',
+        3,
+      )
+      .order(
+        'created_at',
+        {
+          ascending: true,
+        },
+      )
+
+  if (error) {
+    throw error
+  }
+
+  const rows =
+    (data ?? []) as WaitingMedicalSessionRow[]
+
+  return Promise.all(
+    rows.map(
+      async (row) => {
+        const employerName =
+          await getEmployerName(
+            row.employer_id,
+          )
+
+        const {
+          data: sessionItemsData,
+          error: sessionItemsError,
+        } =
+          await supabase
+            .from(
+              'medical_examination_session_items',
+            )
+            .select(`
+              employee_id
+            `)
+            .eq(
+              'session_id',
+              row.id,
+            )
+
+        if (sessionItemsError) {
+          throw sessionItemsError
+        }
+
+        const employeeIds =
+          Array.from(
+            new Set(
+              (sessionItemsData ?? [])
+                .map(
+                  (item) =>
+                    item.employee_id,
+                )
+                .filter(Boolean),
+            ),
+          )
+
+        const employeeNames =
+          await Promise.all(
+            employeeIds.map(
+              (employeeId) =>
+                getEmployeeName(
+                  employeeId,
+                ),
+            ),
+          )
+
+        const employeeLabel =
+          employeeNames.length > 0
+            ? employeeNames.join(', ')
+            : 'Nepoznat zaposleni'
+
+        const createdDate =
+          row.created_at.slice(0, 10)
+
+        const examinationTypeLabel =
+          row.examination_type === 'PREVIOUS'
+            ? 'PRETHODNI'
+            : row.examination_type === 'PERIODIC'
+              ? 'PERIODIČNI'
+              : row.examination_type
+
+        return {
+          id:
+            `medical-waiting-${row.id}`,
+
+          sourceType:
+            'medical',
+
+          sourceId:
+            row.id,
+
+          targetUrl:
+            `/dashboard/lekarski-pregledi?sessionId=${encodeURIComponent(
+              row.id,
+            )}`,
+
+          employerId:
+            row.employer_id,
+
+          employerName,
+
+          category:
+            'LEKARSKI PREGLED',
+
+          title:
+            'Čekaju se rezultati lekarskog pregleda',
+
+          subject:
+            `${employeeLabel} – ${row.session_number} – ${examinationTypeLabel}`,
+
+          deadlineLabel:
+            'Čekaju se rezultati pregleda',
+
+          deadlineDate:
+            createdDate,
+
+          reasonLabel:
+            'Uput je generisan. Kada stignu rezultati medicine rada, otvorite ovaj postupak i evidentirajte rezultate pregleda.',
+
+          priority:
+            'high',
+
+          status:
+            'waiting',
         }
       },
     ),
@@ -838,11 +1082,13 @@ export async function getWorkInboxItems():
   const [
     trainingItems,
     medicalItems,
+    waitingMedicalItems,
     workEquipmentItems,
   ] =
     await Promise.all([
       getTrainingInboxItems(),
       getMedicalInboxItems(),
+      getWaitingMedicalSessionInboxItems(),
       getWorkEquipmentInboxItems(),
     ])
 
@@ -850,6 +1096,7 @@ export async function getWorkInboxItems():
     WorkInboxItem[] = [
       ...trainingItems,
       ...medicalItems,
+      ...waitingMedicalItems,
       ...workEquipmentItems,
     ]
 
