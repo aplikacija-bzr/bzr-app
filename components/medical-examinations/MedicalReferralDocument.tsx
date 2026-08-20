@@ -19,11 +19,11 @@ Font.register({
   family: 'DejaVu Sans',
   fonts: [
     {
-      src: 'http://localhost:3000/fonts/DejaVuSans.ttf',
+      src: '/fonts/DejaVuSans.ttf',
       fontWeight: 400,
     },
     {
-      src: 'http://localhost:3000/fonts/DejaVuSans-Bold.ttf',
+      src: '/fonts/DejaVuSans-Bold.ttf',
       fontWeight: 700,
     },
   ],
