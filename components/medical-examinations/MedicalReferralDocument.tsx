@@ -1,3 +1,4 @@
+import path from 'path'
 import {
   Document,
   Page,
@@ -19,11 +20,21 @@ Font.register({
   family: 'DejaVu Sans',
   fonts: [
     {
-      src: '/fonts/DejaVuSans.ttf',
+      src: path.join(
+        process.cwd(),
+        'public',
+        'fonts',
+        'DejaVuSans.ttf'
+      ),
       fontWeight: 400,
     },
     {
-      src: '/fonts/DejaVuSans-Bold.ttf',
+      src: path.join(
+        process.cwd(),
+        'public',
+        'fonts',
+        'DejaVuSans-Bold.ttf'
+      ),
       fontWeight: 700,
     },
   ],
