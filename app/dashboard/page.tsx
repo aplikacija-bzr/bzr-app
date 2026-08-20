@@ -123,6 +123,9 @@ sourceId: item.sourceId,
             <a href="/employers" style={navigationItem}>
               🏢 Poslodavci
             </a>
+            <a href="/dashboard/poslodavci" style={navigationItem}>
+  📋 Dnevne kontrole
+</a>
 
             <a href="/dashboard" style={navigationItem}>
               📋 Postupci
