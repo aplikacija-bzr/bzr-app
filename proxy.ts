@@ -89,12 +89,13 @@ export async function proxy(
     request.nextUrl.pathname
 
   if (
-    profile.role === 'OPERATER' &&
-    !pathname.startsWith('/dashboard/lekarski-pregledi') &&
-    !pathname.startsWith('/dashboard/obuke') &&
-    !pathname.startsWith('/dashboard/kontrole') &&
-    !pathname.startsWith('/dashboard/poslodavci')
-  ) {
+  profile.role === 'OPERATER' &&
+  pathname !== '/dashboard' &&
+  !pathname.startsWith('/dashboard/lekarski-pregledi') &&
+  !pathname.startsWith('/dashboard/obuke') &&
+  !pathname.startsWith('/dashboard/kontrole') &&
+  !pathname.startsWith('/dashboard/poslodavci')
+) {
     return NextResponse.redirect(
       new URL(
         '/dashboard/lekarski-pregledi',
