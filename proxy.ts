@@ -90,9 +90,10 @@ export async function proxy(
 
   if (
     profile.role === 'OPERATER' &&
-    !pathname.startsWith(
-      '/dashboard/lekarski-pregledi'
-    )
+    !pathname.startsWith('/dashboard/lekarski-pregledi') &&
+    !pathname.startsWith('/dashboard/obuke') &&
+    !pathname.startsWith('/dashboard/kontrole') &&
+    !pathname.startsWith('/dashboard/poslodavci')
   ) {
     return NextResponse.redirect(
       new URL(
