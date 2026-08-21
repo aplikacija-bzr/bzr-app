@@ -1,11 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const TEST_EMPLOYER_ID =
-  "d955c6b4-f7eb-4cf3-ab19-25e464facde3";
 
 function getPreviousMonth() {
   const now = new Date();
@@ -29,11 +26,29 @@ function getPreviousMonth() {
   return `${year}-${month}`;
 }
 
-const TEST_MONTH = getPreviousMonth();
+function getMonthRange(month: string) {
+  const [year, monthNumber] =
+    month.split("-");
 
-export async function GET(
-  request: NextRequest
-) {
+  const startDate =
+    `${year}-${monthNumber}-01`;
+
+  const endDate =
+    new Date(
+      Number(year),
+      Number(monthNumber),
+      1
+    )
+      .toISOString()
+      .slice(0, 10);
+
+  return {
+    startDate,
+    endDate,
+  };
+}
+
+export async function GET() {
   try {
     const supabaseUrl =
       process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -41,7 +56,10 @@ export async function GET(
     const serviceRoleKey =
       process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    if (!supabaseUrl || !serviceRoleKey) {
+    if (
+      !supabaseUrl ||
+      !serviceRoleKey
+    ) {
       return NextResponse.json(
         {
           error:
@@ -59,14 +77,22 @@ export async function GET(
         serviceRoleKey
       );
 
-    const shouldSend =
-      request.nextUrl.searchParams.get(
-        "send"
-      ) === "1";
+    const month =
+      getPreviousMonth();
 
     const {
-      data: employer,
-      error: employerError,
+      startDate,
+      endDate,
+    } =
+      getMonthRange(month);
+
+    /*
+     * 1. Poslodavci koji imaju
+     * definisan email za mesečni izveštaj.
+     */
+    const {
+      data: employersData,
+      error: employersError,
     } =
       await supabase
         .from("employers")
@@ -75,139 +101,27 @@ export async function GET(
           name,
           monthly_report_email
         `)
-        .eq(
-          "id",
-          TEST_EMPLOYER_ID
+        .not(
+          "monthly_report_email",
+          "is",
+          null
         )
-        .maybeSingle();
-
-    if (employerError) {
-      return NextResponse.json(
-        {
-          error:
-            employerError.message,
-        },
-        {
-          status: 500,
-        }
-      );
-    }
-
-    if (!employer) {
-      return NextResponse.json(
-        {
-          error:
-            "Test poslodavac TIM nije pronađen.",
-        },
-        {
-          status: 404,
-        }
-      );
-    }
-
-    const {
-      data: existingReport,
-      error: existingReportError,
-    } =
-      await supabase
-        .from("monthly_reports_sent")
-        .select(`
-          id,
-          employer_id,
-          month,
-          recipient_email,
-          status,
-          sent_at
-        `)
-        .eq(
-          "employer_id",
-          TEST_EMPLOYER_ID
-        )
-        .eq(
-          "month",
-          TEST_MONTH
-        )
-        .eq(
-          "status",
-          "sent"
+        .neq(
+          "monthly_report_email",
+          ""
         )
         .order(
-          "sent_at",
-          {
-            ascending: false,
-          }
-        )
-        .limit(1)
-        .maybeSingle();
-
-    if (existingReportError) {
-      return NextResponse.json(
-        {
-          error:
-            existingReportError.message,
-        },
-        {
-          status: 500,
-        }
-      );
-    }
-
-    const [year, monthNumber] =
-      TEST_MONTH.split("-");
-
-    const startDate =
-      `${year}-${monthNumber}-01`;
-
-    const endDate =
-      new Date(
-        Number(year),
-        Number(monthNumber),
-        1
-      )
-        .toISOString()
-        .slice(0, 10);
-
-    const {
-      data: inspections,
-      error: inspectionsError,
-    } =
-      await supabase
-        .from("inspections")
-        .select(`
-          id,
-          inspection_date,
-          object_name,
-          status,
-          advisor_name
-        `)
-        .eq(
-          "employer_id",
-          TEST_EMPLOYER_ID
-        )
-        .eq(
-          "status",
-          "completed"
-        )
-        .gte(
-          "inspection_date",
-          startDate
-        )
-        .lt(
-          "inspection_date",
-          endDate
-        )
-        .order(
-          "inspection_date",
+          "name",
           {
             ascending: true,
           }
         );
 
-    if (inspectionsError) {
+    if (employersError) {
       return NextResponse.json(
         {
           error:
-            inspectionsError.message,
+            employersError.message,
         },
         {
           status: 500,
@@ -215,158 +129,272 @@ export async function GET(
       );
     }
 
-    const completedControls =
-      inspections ?? [];
+    const employers =
+      employersData ?? [];
 
-    const advisorNames =
-      Array.from(
-        new Set(
-          completedControls
-            .map(
-              (inspection) =>
-                inspection.advisor_name?.trim()
-            )
-            .filter(
-              (
-                value
-              ): value is string =>
-                Boolean(value)
-            )
-        )
+    const employerIds =
+      employers.map(
+        (employer) =>
+          employer.id
       );
 
-    const advisorName =
-      advisorNames.join(", ");
+    /*
+     * 2. Završene kontrole
+     * za prethodni mesec.
+     */
+    let inspections: any[] = [];
 
-    const canSend =
-      !existingReport &&
-      completedControls.length > 0 &&
-      Boolean(
-        employer.monthly_report_email
-      );
+    if (
+      employerIds.length > 0
+    ) {
+      const {
+        data: inspectionsData,
+        error: inspectionsError,
+      } =
+        await supabase
+          .from("inspections")
+          .select(`
+            id,
+            employer_id,
+            inspection_date,
+            object_name,
+            advisor_name,
+            status
+          `)
+          .in(
+            "employer_id",
+            employerIds
+          )
+          .eq(
+            "status",
+            "completed"
+          )
+          .gte(
+            "inspection_date",
+            startDate
+          )
+          .lt(
+            "inspection_date",
+            endDate
+          )
+          .order(
+            "inspection_date",
+            {
+              ascending: true,
+            }
+          );
 
-    if (!canSend) {
-      return NextResponse.json({
-        success: true,
-        mode: "TEST",
-        sent: false,
-        employer: {
-          id:
-            employer.id,
-          name:
-            employer.name,
-          monthlyReportEmail:
-            employer.monthly_report_email,
-        },
-        month:
-          TEST_MONTH,
-        alreadySent:
-          Boolean(existingReport),
-        completedControlsCount:
-          completedControls.length,
-        canSend,
-        message:
-          existingReport
-            ? "Izveštaj je već poslat. Novi email NIJE poslat."
-            : completedControls.length === 0
-            ? "Nema završenih kontrola za ovaj mesec. Email NIJE poslat."
-            : "Poslodavac nema email za mesečni izveštaj. Email NIJE poslat.",
-      });
-    }
-
-    if (!shouldSend) {
-      return NextResponse.json({
-        success: true,
-        mode: "TEST",
-        sent: false,
-        employer: {
-          id:
-            employer.id,
-          name:
-            employer.name,
-          monthlyReportEmail:
-            employer.monthly_report_email,
-        },
-        month:
-          TEST_MONTH,
-        alreadySent: false,
-        completedControlsCount:
-          completedControls.length,
-        canSend: true,
-        advisorName:
-          advisorName || null,
-        message:
-          "Izveštaj je spreman za slanje. Za stvarni TEST dodaj ?send=1. Email još NIJE poslat.",
-      });
-    }
-
-    const origin =
-      request.nextUrl.origin;
-
-    const sendResponse =
-      await fetch(
-        `${origin}/api/send-email`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
+      if (inspectionsError) {
+        return NextResponse.json(
+          {
+            error:
+              inspectionsError.message,
           },
-          body: JSON.stringify({
-            to:
-              employer.monthly_report_email,
+          {
+            status: 500,
+          }
+        );
+      }
 
+      inspections =
+        inspectionsData ?? [];
+    }
+
+    /*
+     * 3. Već poslati mesečni
+     * izveštaji za isti mesec.
+     */
+    let sentReports: any[] = [];
+
+    if (
+      employerIds.length > 0
+    ) {
+      const {
+        data: sentData,
+        error: sentError,
+      } =
+        await supabase
+          .from(
+            "monthly_reports_sent"
+          )
+          .select(`
+            id,
+            employer_id,
+            month,
+            recipient_email,
+            status,
+            sent_at
+          `)
+          .in(
+            "employer_id",
+            employerIds
+          )
+          .eq(
+            "month",
+            month
+          )
+          .eq(
+            "status",
+            "sent"
+          );
+
+      if (sentError) {
+        return NextResponse.json(
+          {
+            error:
+              sentError.message,
+          },
+          {
+            status: 500,
+          }
+        );
+      }
+
+      sentReports =
+        sentData ?? [];
+    }
+
+    /*
+     * 4. Formiranje dry-run pregleda.
+     */
+    const results =
+      employers.map(
+        (employer) => {
+          const employerInspections =
+            inspections.filter(
+              (inspection) =>
+                inspection.employer_id ===
+                employer.id
+            );
+
+          const existingReport =
+            sentReports.find(
+              (report) =>
+                report.employer_id ===
+                employer.id
+            );
+
+          const advisorNames =
+            Array.from(
+              new Set(
+                employerInspections
+                  .map(
+                    (inspection) =>
+                      inspection.advisor_name?.trim()
+                  )
+                  .filter(
+                    (
+                      value
+                    ): value is string =>
+                      Boolean(value)
+                  )
+              )
+            );
+
+          const alreadySent =
+            Boolean(
+              existingReport
+            );
+
+          const completedControlsCount =
+            employerInspections.length;
+
+          const canSend =
+            !alreadySent &&
+            completedControlsCount > 0 &&
+            Boolean(
+              employer.monthly_report_email
+            );
+
+          let reason = "";
+
+          if (alreadySent) {
+            reason =
+              "Već poslato";
+          } else if (
+            completedControlsCount === 0
+          ) {
+            reason =
+              "Nema završenih kontrola";
+          } else {
+            reason =
+              "Spremno za slanje";
+          }
+
+          return {
             employerId:
               employer.id,
 
-            month:
-              TEST_MONTH,
+            employerName:
+              employer.name,
 
-            advisorName,
-          }),
-          cache: "no-store",
+            recipientEmail:
+              employer.monthly_report_email,
+
+            month,
+
+            completedControlsCount,
+
+            advisorNames,
+
+            alreadySent,
+
+            canSend,
+
+            reason,
+
+            existingReport:
+              existingReport || null,
+          };
         }
       );
 
-    const sendResult =
-      await sendResponse.json();
-
-    if (!sendResponse.ok) {
-      return NextResponse.json(
-        {
-          success: false,
-          sent: false,
-          error:
-            sendResult?.error ||
-            "Greška pri slanju mesečnog izveštaja.",
-        },
-        {
-          status:
-            sendResponse.status,
-        }
+    const readyToSend =
+      results.filter(
+        (item) =>
+          item.canSend
       );
-    }
 
+    const alreadySent =
+      results.filter(
+        (item) =>
+          item.alreadySent
+      );
+
+    const withoutControls =
+      results.filter(
+        (item) =>
+          !item.alreadySent &&
+          item.completedControlsCount === 0
+      );
+
+    /*
+     * DRY-RUN:
+     * Ovde se NIJEDAN email ne šalje.
+     */
     return NextResponse.json({
       success: true,
-      mode: "TEST-SEND",
-      sent: true,
-      employer: {
-        id:
-          employer.id,
-        name:
-          employer.name,
-        monthlyReportEmail:
-          employer.monthly_report_email,
+      mode: "DRY-RUN",
+      month,
+
+      summary: {
+        employersWithEmail:
+          employers.length,
+
+        readyToSend:
+          readyToSend.length,
+
+        alreadySent:
+          alreadySent.length,
+
+        withoutControls:
+          withoutControls.length,
       },
-      month:
-        TEST_MONTH,
-      completedControlsCount:
-        completedControls.length,
-      advisorName:
-        advisorName || null,
+
+      results,
+
       message:
-        "TEST mesečni izveštaj je uspešno poslat. Sledeći poziv mora biti blokiran evidencijom monthly_reports_sent.",
+        "DRY-RUN završen. Nijedan email NIJE poslat.",
     });
   } catch (error) {
     console.error(
