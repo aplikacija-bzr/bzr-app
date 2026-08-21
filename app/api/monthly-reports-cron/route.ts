@@ -7,7 +7,29 @@ export const dynamic = "force-dynamic";
 const TEST_EMPLOYER_ID =
   "d955c6b4-f7eb-4cf3-ab19-25e464facde3";
 
-const TEST_MONTH = "2026-07";
+function getPreviousMonth() {
+  const now = new Date();
+
+  const previousMonth = new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth() - 1,
+      1
+    )
+  );
+
+  const year =
+    previousMonth.getUTCFullYear();
+
+  const month =
+    String(
+      previousMonth.getUTCMonth() + 1
+    ).padStart(2, "0");
+
+  return `${year}-${month}`;
+}
+
+const TEST_MONTH = getPreviousMonth();
 
 export async function GET(
   request: NextRequest
