@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/utils/supabase/server'
 import MonthlyReportButton from '@/app/components/MonthlyReportButton'
+import MonthlyReportEmailEditor from '@/app/components/MonthlyReportEmailEditor'
 
 export default async function ClientPage({
   params,
@@ -62,6 +63,11 @@ export default async function ClientPage({
             {client.monthly_report_email || 'Nije unet'}
           </b>
         </p>
+
+        <MonthlyReportEmailEditor
+          employerId={employerId}
+          initialEmail={client.monthly_report_email}
+        />
       </div>
 
       <div style={card}>
