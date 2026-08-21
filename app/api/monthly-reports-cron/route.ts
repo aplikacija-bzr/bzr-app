@@ -4,6 +4,8 @@ import { createClient } from "@supabase/supabase-js";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const MAX_REPORTS_PER_RUN = 20;
+
 function getPreviousMonth() {
   const now = new Date();
 
@@ -398,6 +400,15 @@ export async function GET(
 
           withoutControls:
             withoutControls.length,
+
+          maxReportsPerRun:
+            MAX_REPORTS_PER_RUN,
+
+          wouldSendNow:
+            Math.min(
+              readyToSend.length,
+              MAX_REPORTS_PER_RUN
+            ),
         },
 
         results,
@@ -408,101 +419,166 @@ export async function GET(
     }
 
     /*
-     * 6. TEST slanje samo PRVOG kandidata.
+     * 6. Slanje najviše 20 kandidata
+     * u jednom pokretanju.
      */
-    const firstCandidate =
-      readyToSend[0];
+    const candidates =
+      readyToSend.slice(
+        0,
+        MAX_REPORTS_PER_RUN
+      );
 
-    if (!firstCandidate) {
+    if (candidates.length === 0) {
       return NextResponse.json({
         success: true,
-        mode: "TEST-SEND",
+        mode: "BATCH-SEND",
         sent: false,
         month,
+        attempted: 0,
+        sentCount: 0,
+        failedCount: 0,
         message:
           "Nema kandidata za slanje. Nijedan email NIJE poslat.",
       });
     }
 
-    const advisorName =
-      firstCandidate.advisorNames.join(
-        ", "
-      );
-
     const origin =
       request.nextUrl.origin;
 
-    const sendResponse =
-      await fetch(
-        `${origin}/api/send-email`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            to:
-              firstCandidate.recipientEmail,
+    const sendResults: any[] = [];
 
+    /*
+     * Šaljemo redom, ne paralelno,
+     * da ne opterećujemo mail server.
+     */
+    for (const candidate of candidates) {
+      try {
+        const advisorName =
+          candidate.advisorNames.join(
+            ", "
+          );
+
+        const sendResponse =
+          await fetch(
+            `${origin}/api/send-email`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+              body: JSON.stringify({
+                to:
+                  candidate.recipientEmail,
+
+                employerId:
+                  candidate.employerId,
+
+                month,
+
+                advisorName,
+              }),
+              cache: "no-store",
+            }
+          );
+
+        const sendResult =
+          await sendResponse.json();
+
+        if (!sendResponse.ok) {
+          sendResults.push({
             employerId:
-              firstCandidate.employerId,
+              candidate.employerId,
 
-            month,
+            employerName:
+              candidate.employerName,
 
-            advisorName,
-          }),
-          cache: "no-store",
+            recipientEmail:
+              candidate.recipientEmail,
+
+            success: false,
+
+            error:
+              sendResult?.error ||
+              "Greška pri slanju mesečnog izveštaja.",
+          });
+
+          continue;
         }
-      );
 
-    const sendResult =
-      await sendResponse.json();
+        sendResults.push({
+          employerId:
+            candidate.employerId,
 
-    if (!sendResponse.ok) {
-      return NextResponse.json(
-        {
+          employerName:
+            candidate.employerName,
+
+          recipientEmail:
+            candidate.recipientEmail,
+
+          success: true,
+        });
+      } catch (sendError) {
+        sendResults.push({
+          employerId:
+            candidate.employerId,
+
+          employerName:
+            candidate.employerName,
+
+          recipientEmail:
+            candidate.recipientEmail,
+
           success: false,
-          mode: "TEST-SEND",
-          sent: false,
-          employer:
-            firstCandidate,
+
           error:
-            sendResult?.error ||
-            "Greška pri slanju mesečnog izveštaja.",
-        },
-        {
-          status:
-            sendResponse.status,
-        }
-      );
+            sendError instanceof Error
+              ? sendError.message
+              : "Nepoznata greška pri slanju.",
+        });
+      }
     }
 
+    const successful =
+      sendResults.filter(
+        (item) =>
+          item.success
+      );
+
+    const failed =
+      sendResults.filter(
+        (item) =>
+          !item.success
+      );
+
     return NextResponse.json({
-      success: true,
-      mode: "TEST-SEND",
-      sent: true,
+      success:
+        failed.length === 0,
+
+      mode: "BATCH-SEND",
+
+      sent:
+        successful.length > 0,
+
       month,
 
-      employer: {
-        id:
-          firstCandidate.employerId,
+      maxReportsPerRun:
+        MAX_REPORTS_PER_RUN,
 
-        name:
-          firstCandidate.employerName,
+      attempted:
+        candidates.length,
 
-        recipientEmail:
-          firstCandidate.recipientEmail,
+      sentCount:
+        successful.length,
 
-        completedControlsCount:
-          firstCandidate.completedControlsCount,
+      failedCount:
+        failed.length,
 
-        advisorNames:
-          firstCandidate.advisorNames,
-      },
+      results:
+        sendResults,
 
       message:
-        "TEST mesečni izveštaj je uspešno poslat samo prvom kandidatu.",
+        `Obrada završena. Poslato: ${successful.length}. Neuspešno: ${failed.length}.`,
     });
   } catch (error) {
     console.error(
