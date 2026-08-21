@@ -7,6 +7,8 @@ export const dynamic = "force-dynamic";
 const TEST_EMPLOYER_ID =
   "d955c6b4-f7eb-4cf3-ab19-25e464facde3";
 
+const TEST_MONTH = "2026-08";
+
 export async function GET() {
   try {
     const supabaseUrl =
@@ -15,10 +17,7 @@ export async function GET() {
     const serviceRoleKey =
       process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    if (
-      !supabaseUrl ||
-      !serviceRoleKey
-    ) {
+    if (!supabaseUrl || !serviceRoleKey) {
       return NextResponse.json(
         {
           error:
@@ -35,12 +34,6 @@ export async function GET() {
         supabaseUrl,
         serviceRoleKey
       );
-
-    /*
-     * TEST FAZA:
-     * Za sada proveravamo samo TIM.
-     * Još NE šaljemo email.
-     */
 
     const {
       data: employer,
@@ -83,21 +76,74 @@ export async function GET() {
       );
     }
 
+    const {
+      data: existingReport,
+      error: existingReportError,
+    } =
+      await supabase
+        .from("monthly_reports_sent")
+        .select(`
+          id,
+          employer_id,
+          month,
+          recipient_email,
+          status,
+          sent_at
+        `)
+        .eq(
+          "employer_id",
+          TEST_EMPLOYER_ID
+        )
+        .eq(
+          "month",
+          TEST_MONTH
+        )
+        .eq(
+          "status",
+          "sent"
+        )
+        .order(
+          "sent_at",
+          {
+            ascending: false,
+          }
+        )
+        .limit(1)
+        .maybeSingle();
+
+    if (existingReportError) {
+      return NextResponse.json(
+        {
+          error:
+            existingReportError.message,
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       mode: "TEST",
-      message:
-        "Cron ruta radi. Email još nije poslat.",
       employer: {
         id:
           employer.id,
-
         name:
           employer.name,
-
         monthlyReportEmail:
           employer.monthly_report_email,
       },
+      month:
+        TEST_MONTH,
+      alreadySent:
+        Boolean(existingReport),
+      existingReport:
+        existingReport || null,
+      message:
+        existingReport
+          ? "Mesečni izveštaj je već evidentiran kao poslat. Email NIJE ponovo poslat."
+          : "Mesečni izveštaj još nije evidentiran kao poslat. Email još uvek NIJE poslat.",
     });
   } catch (error) {
     console.error(
