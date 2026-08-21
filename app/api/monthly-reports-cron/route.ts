@@ -123,6 +123,78 @@ export async function GET() {
       );
     }
 
+    const [year, monthNumber] =
+      TEST_MONTH.split("-");
+
+    const startDate =
+      `${year}-${monthNumber}-01`;
+
+    const endDate =
+      new Date(
+        Number(year),
+        Number(monthNumber),
+        1
+      )
+        .toISOString()
+        .slice(0, 10);
+
+    const {
+      data: inspections,
+      error: inspectionsError,
+    } =
+      await supabase
+        .from("inspections")
+        .select(`
+          id,
+          inspection_date,
+          object_name,
+          status
+        `)
+        .eq(
+          "employer_id",
+          TEST_EMPLOYER_ID
+        )
+        .eq(
+          "status",
+          "completed"
+        )
+        .gte(
+          "inspection_date",
+          startDate
+        )
+        .lt(
+          "inspection_date",
+          endDate
+        )
+        .order(
+          "inspection_date",
+          {
+            ascending: true,
+          }
+        );
+
+    if (inspectionsError) {
+      return NextResponse.json(
+        {
+          error:
+            inspectionsError.message,
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    const completedControls =
+      inspections ?? [];
+
+    const canSend =
+      !existingReport &&
+      completedControls.length > 0 &&
+      Boolean(
+        employer.monthly_report_email
+      );
+
     return NextResponse.json({
       success: true,
       mode: "TEST",
@@ -138,12 +210,18 @@ export async function GET() {
         TEST_MONTH,
       alreadySent:
         Boolean(existingReport),
-      existingReport:
-        existingReport || null,
+      completedControlsCount:
+        completedControls.length,
+      completedControls,
+      canSend,
       message:
         existingReport
-          ? "Mesečni izveštaj je već evidentiran kao poslat. Email NIJE ponovo poslat."
-          : "Mesečni izveštaj još nije evidentiran kao poslat. Email još uvek NIJE poslat.",
+          ? "Izveštaj je već poslat. Novi email NIJE poslat."
+          : completedControls.length === 0
+          ? "Nema završenih kontrola za ovaj mesec. Email NIJE poslat."
+          : !employer.monthly_report_email
+          ? "Poslodavac nema email za mesečni izveštaj. Email NIJE poslat."
+          : "Izveštaj je spreman za slanje. Email još uvek NIJE poslat.",
     });
   } catch (error) {
     console.error(
