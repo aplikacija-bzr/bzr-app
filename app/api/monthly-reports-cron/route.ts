@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
@@ -9,7 +9,9 @@ const TEST_EMPLOYER_ID =
 
 const TEST_MONTH = "2026-07";
 
-export async function GET() {
+export async function GET(
+  request: NextRequest
+) {
   try {
     const supabaseUrl =
       process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -34,6 +36,11 @@ export async function GET() {
         supabaseUrl,
         serviceRoleKey
       );
+
+    const shouldSend =
+      request.nextUrl.searchParams.get(
+        "send"
+      ) === "1";
 
     const {
       data: employer,
@@ -148,7 +155,8 @@ export async function GET() {
           id,
           inspection_date,
           object_name,
-          status
+          status,
+          advisor_name
         `)
         .eq(
           "employer_id",
@@ -188,6 +196,26 @@ export async function GET() {
     const completedControls =
       inspections ?? [];
 
+    const advisorNames =
+      Array.from(
+        new Set(
+          completedControls
+            .map(
+              (inspection) =>
+                inspection.advisor_name?.trim()
+            )
+            .filter(
+              (
+                value
+              ): value is string =>
+                Boolean(value)
+            )
+        )
+      );
+
+    const advisorName =
+      advisorNames.join(", ");
+
     const canSend =
       !existingReport &&
       completedControls.length > 0 &&
@@ -195,9 +223,112 @@ export async function GET() {
         employer.monthly_report_email
       );
 
+    if (!canSend) {
+      return NextResponse.json({
+        success: true,
+        mode: "TEST",
+        sent: false,
+        employer: {
+          id:
+            employer.id,
+          name:
+            employer.name,
+          monthlyReportEmail:
+            employer.monthly_report_email,
+        },
+        month:
+          TEST_MONTH,
+        alreadySent:
+          Boolean(existingReport),
+        completedControlsCount:
+          completedControls.length,
+        canSend,
+        message:
+          existingReport
+            ? "Izveštaj je već poslat. Novi email NIJE poslat."
+            : completedControls.length === 0
+            ? "Nema završenih kontrola za ovaj mesec. Email NIJE poslat."
+            : "Poslodavac nema email za mesečni izveštaj. Email NIJE poslat.",
+      });
+    }
+
+    if (!shouldSend) {
+      return NextResponse.json({
+        success: true,
+        mode: "TEST",
+        sent: false,
+        employer: {
+          id:
+            employer.id,
+          name:
+            employer.name,
+          monthlyReportEmail:
+            employer.monthly_report_email,
+        },
+        month:
+          TEST_MONTH,
+        alreadySent: false,
+        completedControlsCount:
+          completedControls.length,
+        canSend: true,
+        advisorName:
+          advisorName || null,
+        message:
+          "Izveštaj je spreman za slanje. Za stvarni TEST dodaj ?send=1. Email još NIJE poslat.",
+      });
+    }
+
+    const origin =
+      request.nextUrl.origin;
+
+    const sendResponse =
+      await fetch(
+        `${origin}/api/send-email`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            to:
+              employer.monthly_report_email,
+
+            employerId:
+              employer.id,
+
+            month:
+              TEST_MONTH,
+
+            advisorName,
+          }),
+          cache: "no-store",
+        }
+      );
+
+    const sendResult =
+      await sendResponse.json();
+
+    if (!sendResponse.ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          sent: false,
+          error:
+            sendResult?.error ||
+            "Greška pri slanju mesečnog izveštaja.",
+        },
+        {
+          status:
+            sendResponse.status,
+        }
+      );
+    }
+
     return NextResponse.json({
       success: true,
-      mode: "TEST",
+      mode: "TEST-SEND",
+      sent: true,
       employer: {
         id:
           employer.id,
@@ -208,20 +339,12 @@ export async function GET() {
       },
       month:
         TEST_MONTH,
-      alreadySent:
-        Boolean(existingReport),
       completedControlsCount:
         completedControls.length,
-      completedControls,
-      canSend,
+      advisorName:
+        advisorName || null,
       message:
-        existingReport
-          ? "Izveštaj je već poslat. Novi email NIJE poslat."
-          : completedControls.length === 0
-          ? "Nema završenih kontrola za ovaj mesec. Email NIJE poslat."
-          : !employer.monthly_report_email
-          ? "Poslodavac nema email za mesečni izveštaj. Email NIJE poslat."
-          : "Izveštaj je spreman za slanje. Email još uvek NIJE poslat.",
+        "TEST mesečni izveštaj je uspešno poslat. Sledeći poziv mora biti blokiran evidencijom monthly_reports_sent.",
     });
   } catch (error) {
     console.error(
