@@ -12,7 +12,7 @@ export default async function ClientPage({
 
   const { data: client, error } = await supabase
     .from('employers')
-    .select('id, name, active')
+    .select('id, name, active, monthly_report_email')
     .eq('id', clientId)
     .single()
 
@@ -20,6 +20,7 @@ export default async function ClientPage({
     return (
       <div style={{ padding: 30 }}>
         <Link href="/dashboard/poslodavci">← Nazad</Link>
+
         <p style={{ color: 'red' }}>
           Greška pri učitavanju poslodavca.
         </p>
@@ -52,6 +53,13 @@ export default async function ClientPage({
             }}
           >
             {client.active ? 'Aktivan' : 'Neaktivan'}
+          </b>
+        </p>
+
+        <p>
+          Email za mesečni izveštaj:{' '}
+          <b>
+            {client.monthly_report_email || 'Nije unet'}
           </b>
         </p>
       </div>
