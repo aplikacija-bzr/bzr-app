@@ -5,6 +5,14 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MAX_REPORTS_PER_RUN = 20;
+function isAllowedSendDay() {
+  const now = new Date();
+
+  const day =
+    now.getUTCDate();
+
+  return day >= 1 && day <= 5;
+}
 
 function getPreviousMonth() {
   const now = new Date();
@@ -85,7 +93,8 @@ export async function GET(
       request.nextUrl.searchParams.get(
         "send"
       ) === "1";
-
+const allowedSendDay =
+  isAllowedSendDay();
     const month =
       getPreviousMonth();
 
@@ -422,6 +431,20 @@ export async function GET(
      * 6. Slanje najviše 20 kandidata
      * u jednom pokretanju.
      */
+    if (
+  shouldSend &&
+  !allowedSendDay
+) {
+  return NextResponse.json({
+    success: true,
+    mode: "BLOCKED",
+    sent: false,
+    month,
+    allowedSendDay: false,
+    message:
+      "Automatsko slanje mesečnih izveštaja dozvoljeno je samo od 1. do 5. dana u mesecu. Nijedan email NIJE poslat.",
+  });
+}
     const candidates =
       readyToSend.slice(
         0,
