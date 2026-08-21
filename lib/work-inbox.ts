@@ -44,12 +44,19 @@ type MedicalExaminationRow = {
   id: string
   employer_id: string
   employee_id: string
-  employer_job_position_id: string | null
+  employer_job_position_id:
+    | string
+    | null
   examination_type: string
+  examination_date:
+    | string
+    | null
   next_examination_date: string
   reminder_date: string | null
   report_number: string | null
-  fitness_assessment: string | null
+  fitness_assessment:
+    | string
+    | null
   status: string
 }
 
@@ -101,7 +108,8 @@ function mapTrainingStatus(
 }
 
 function getStartOfToday(): Date {
-  const today = new Date()
+  const today =
+    new Date()
 
   today.setHours(
     0,
@@ -140,13 +148,15 @@ function formatDateValue(
   )
 }
 
-function getTodayDateValue(): string {
+function getTodayDateValue():
+  string {
   return formatDateValue(
     getStartOfToday(),
   )
 }
 
-function getUpperDateLimit(): string {
+function getUpperDateLimit():
+  string {
   const today =
     getStartOfToday()
 
@@ -269,7 +279,9 @@ function getTrainingReasonLabel(
 
 function getMedicalReasonLabel(
   dateValue: string,
-  fitnessAssessment: string | null,
+  fitnessAssessment:
+    | string
+    | null,
 ): string {
   const daysUntil =
     getDaysUntil(
@@ -322,7 +334,10 @@ async function getEmployerName(
   const supabase =
     await createClient()
 
-  const { data, error } =
+  const {
+    data,
+    error,
+  } =
     await supabase
       .from(
         'employers',
@@ -337,7 +352,9 @@ async function getEmployerName(
       .single()
 
   if (error) {
-    return 'Nepoznat poslodavac'
+    return (
+      'Nepoznat poslodavac'
+    )
   }
 
   return (
@@ -352,7 +369,10 @@ async function getEmployeeName(
   const supabase =
     await createClient()
 
-  const { data, error } =
+  const {
+    data,
+    error,
+  } =
     await supabase
       .from(
         'employees',
@@ -367,7 +387,9 @@ async function getEmployeeName(
       .single()
 
   if (error) {
-    return 'Nepoznat zaposleni'
+    return (
+      'Nepoznat zaposleni'
+    )
   }
 
   const firstName =
@@ -404,7 +426,10 @@ async function getTrainingInboxItems():
   const upperDateLimit =
     getUpperDateLimit()
 
-  const { data, error } =
+  const {
+    data,
+    error,
+  } =
     await supabase
       .from(
         'training_sessions',
@@ -441,7 +466,8 @@ async function getTrainingInboxItems():
   }
 
   const rows =
-    (data ?? []) as TrainingSessionRow[]
+    (data ?? []) as
+      TrainingSessionRow[]
 
   return Promise.all(
     rows.map(
@@ -510,15 +536,17 @@ async function getTrainingInboxItems():
 // =====================================================
 // LEKARSKI PREGLEDI
 //
-// Relevantan datum:
-// next_examination_date
+// Za svakog zaposlenog + radno mesto uzima se
+// SAMO NAJNOVIJI evidentirani pregled.
 //
-// Prikazuju se samo:
+// Tek nakon toga proverava se:
 //
 // DANAS <= next_examination_date
 //       <= DANAS + 30 DANA
 //
-// Istekli pregledi se NE prikazuju.
+// Na ovaj način stari pregledi ostaju istorija,
+// ali više ne stvaraju lažne zadatke ako postoji
+// noviji evidentirani pregled.
 // =====================================================
 
 async function getMedicalInboxItems():
@@ -532,7 +560,14 @@ async function getMedicalInboxItems():
   const upperDateLimit =
     getUpperDateLimit()
 
-  const { data, error } =
+  // -----------------------------------------
+  // 1. SVI EVIDENTIRANI PREGLEDI
+  // -----------------------------------------
+
+  const {
+    data,
+    error,
+  } =
     await supabase
       .from(
         'medical_examination_records',
@@ -543,6 +578,7 @@ async function getMedicalInboxItems():
         employee_id,
         employer_job_position_id,
         examination_type,
+        examination_date,
         next_examination_date,
         reminder_date,
         report_number,
@@ -553,18 +589,20 @@ async function getMedicalInboxItems():
         'status',
         'RECORDED',
       )
-      .gte(
-        'next_examination_date',
-        today,
+      .not(
+        'examination_date',
+        'is',
+        null,
       )
-      .lte(
+      .not(
         'next_examination_date',
-        upperDateLimit,
+        'is',
+        null,
       )
       .order(
-        'next_examination_date',
+        'examination_date',
         {
-          ascending: true,
+          ascending: false,
         },
       )
 
@@ -572,12 +610,79 @@ async function getMedicalInboxItems():
     throw error
   }
 
-  const rows =
-    (data ?? []) as MedicalExaminationRow[]
+  const allRows =
+    (data ?? []) as
+      MedicalExaminationRow[]
+
+  // -----------------------------------------
+  // 2. NAJNOVIJI PREGLED PO:
+  //    poslodavac + zaposleni + radno mesto
+  //
+  // Pošto su redovi već sortirani od najnovijeg
+  // ka najstarijem, prvi red za dati ključ ostaje.
+  // -----------------------------------------
+
+  const latestRecordMap =
+    new Map<
+      string,
+      MedicalExaminationRow
+    >()
+
+  for (
+    const row of allRows
+  ) {
+    const key =
+      [
+        row.employer_id,
+        row.employee_id,
+        row.employer_job_position_id ??
+          'NO_JOB_POSITION',
+      ].join(':')
+
+    if (
+      !latestRecordMap.has(
+        key,
+      )
+    ) {
+      latestRecordMap.set(
+        key,
+        row,
+      )
+    }
+  }
+
+  const latestRows =
+    Array.from(
+      latestRecordMap.values(),
+    )
+
+  // -----------------------------------------
+  // 3. SAMO ONI ČIJI SLEDEĆI PREGLED
+  //    ISTIČE U NAREDNIH 30 DANA
+  // -----------------------------------------
+
+  const dueRows =
+    latestRows.filter(
+      (row) => {
+        return (
+          row.next_examination_date >=
+            today &&
+          row.next_examination_date <=
+            upperDateLimit
+        )
+      },
+    )
+
+  // -----------------------------------------
+  // 4. POSTUPCI KOJI SU VEĆ POKRENUTI
+  //    I ČEKAJU REZULTATE
+  // -----------------------------------------
 
   const {
-    data: waitingSessionItemsData,
-    error: waitingSessionItemsError,
+    data:
+      waitingSessionItemsData,
+    error:
+      waitingSessionItemsError,
   } =
     await supabase
       .from(
@@ -597,8 +702,12 @@ async function getMedicalInboxItems():
         3,
       )
 
-  if (waitingSessionItemsError) {
-    throw waitingSessionItemsError
+  if (
+    waitingSessionItemsError
+  ) {
+    throw (
+      waitingSessionItemsError
+    )
   }
 
   const waitingKeys =
@@ -606,17 +715,20 @@ async function getMedicalInboxItems():
 
   for (
     const item of
-      waitingSessionItemsData ?? []
+      waitingSessionItemsData ??
+      []
   ) {
     const employeeId =
       item.employee_id
 
     const employeeJobPositionRelation =
       Array.isArray(
-        item.employee_job_positions
+        item.employee_job_positions,
       )
-        ? item.employee_job_positions[0]
-        : item.employee_job_positions
+        ? item
+            .employee_job_positions[0]
+        : item
+            .employee_job_positions
 
     const employerJobPositionId =
       employeeJobPositionRelation
@@ -632,8 +744,13 @@ async function getMedicalInboxItems():
     }
   }
 
+  // -----------------------------------------
+  // 5. AKO JE POSTUPAK VEĆ POKRENUT,
+  //    NE PRIKAZUJ "OBRADITI POSTUPAK"
+  // -----------------------------------------
+
   const visibleRows =
-    rows.filter(
+    dueRows.filter(
       (row) => {
         if (
           !row.employer_job_position_id
@@ -646,6 +763,10 @@ async function getMedicalInboxItems():
         )
       },
     )
+
+  // -----------------------------------------
+  // 6. WORK INBOX STAVKE
+  // -----------------------------------------
 
   return Promise.all(
     visibleRows.map(
@@ -667,9 +788,9 @@ async function getMedicalInboxItems():
         const reportLabel =
           row.report_number
             ? (
-              ` – izveštaj broj ` +
-              row.report_number
-            )
+                ` – izveštaj broj ` +
+                row.report_number
+              )
             : ''
 
         const operationalDate =
@@ -749,7 +870,10 @@ async function getWaitingMedicalSessionInboxItems():
   const supabase =
     await createClient()
 
-  const { data, error } =
+  const {
+    data,
+    error,
+  } =
     await supabase
       .from(
         'medical_examination_sessions',
@@ -778,7 +902,8 @@ async function getWaitingMedicalSessionInboxItems():
   }
 
   const rows =
-    (data ?? []) as WaitingMedicalSessionRow[]
+    (data ?? []) as
+      WaitingMedicalSessionRow[]
 
   return Promise.all(
     rows.map(
@@ -789,8 +914,10 @@ async function getWaitingMedicalSessionInboxItems():
           )
 
         const {
-          data: sessionItemsData,
-          error: sessionItemsError,
+          data:
+            sessionItemsData,
+          error:
+            sessionItemsError,
         } =
           await supabase
             .from(
@@ -804,19 +931,28 @@ async function getWaitingMedicalSessionInboxItems():
               row.id,
             )
 
-        if (sessionItemsError) {
-          throw sessionItemsError
+        if (
+          sessionItemsError
+        ) {
+          throw (
+            sessionItemsError
+          )
         }
 
         const employeeIds =
           Array.from(
             new Set(
-              (sessionItemsData ?? [])
+              (
+                sessionItemsData ??
+                []
+              )
                 .map(
                   (item) =>
                     item.employee_id,
                 )
-                .filter(Boolean),
+                .filter(
+                  Boolean,
+                ),
             ),
           )
 
@@ -831,19 +967,28 @@ async function getWaitingMedicalSessionInboxItems():
           )
 
         const employeeLabel =
-          employeeNames.length > 0
-            ? employeeNames.join(', ')
+          employeeNames.length >
+          0
+            ? employeeNames.join(
+                ', ',
+              )
             : 'Nepoznat zaposleni'
 
         const createdDate =
-          row.created_at.slice(0, 10)
+          row.created_at.slice(
+            0,
+            10,
+          )
 
         const examinationTypeLabel =
-          row.examination_type === 'PREVIOUS'
+          row.examination_type ===
+          'PREVIOUS'
             ? 'PRETHODNI'
-            : row.examination_type === 'PERIODIC'
+            : row.examination_type ===
+                'PERIODIC'
               ? 'PERIODIČNI'
-              : row.examination_type
+              : row
+                  .examination_type
 
         return {
           id:
@@ -919,7 +1064,10 @@ async function getWorkEquipmentInboxItems():
   const upperDateLimit =
     getUpperDateLimit()
 
-  const { data, error } =
+  const {
+    data,
+    error,
+  } =
     await supabase
       .from(
         'work_equipment_reports',
@@ -965,7 +1113,8 @@ async function getWorkEquipmentInboxItems():
   }
 
   const rows =
-    (data ?? []) as WorkEquipmentReportRow[]
+    (data ?? []) as
+      WorkEquipmentReportRow[]
 
   return Promise.all(
     rows.map(
@@ -1001,21 +1150,23 @@ async function getWorkEquipmentInboxItems():
           visibleEquipmentNames.length
 
         const equipmentSubject =
-          equipmentNames.length > 0
+          equipmentNames.length >
+          0
             ? (
-              remainingEquipmentCount > 0
-                ? (
-                  `${visibleEquipmentNames.join(', ')}` +
-                  ` (+${remainingEquipmentCount})`
-                )
-                : visibleEquipmentNames.join(
-                  ', ',
-                )
-            )
+                remainingEquipmentCount >
+                0
+                  ? (
+                      `${visibleEquipmentNames.join(', ')}` +
+                      ` (+${remainingEquipmentCount})`
+                    )
+                  : visibleEquipmentNames.join(
+                      ', ',
+                    )
+              )
             : (
-              `Stručni nalaz: ` +
-              row.report_number
-            )
+                `Stručni nalaz: ` +
+                row.report_number
+              )
 
         const operationalDate =
           row.next_inspection_date
@@ -1105,20 +1256,30 @@ export async function getWorkInboxItems():
       WorkInboxPriority,
       number
     > = {
-      critical: 0,
-      high: 1,
-    }
+    critical: 0,
+    high: 1,
+  }
 
   return allItems.sort(
-    (a, b) => {
+    (
+      a,
+      b,
+    ) => {
       const priorityDifference =
-        priorityOrder[a.priority] -
-        priorityOrder[b.priority]
+        priorityOrder[
+          a.priority
+        ] -
+        priorityOrder[
+          b.priority
+        ]
 
       if (
-        priorityDifference !== 0
+        priorityDifference !==
+        0
       ) {
-        return priorityDifference
+        return (
+          priorityDifference
+        )
       }
 
       const deadlineDifference =
@@ -1127,9 +1288,12 @@ export async function getWorkInboxItems():
         )
 
       if (
-        deadlineDifference !== 0
+        deadlineDifference !==
+        0
       ) {
-        return deadlineDifference
+        return (
+          deadlineDifference
+        )
       }
 
       return (
