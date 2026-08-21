@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
@@ -48,7 +48,9 @@ function getMonthRange(month: string) {
   };
 }
 
-export async function GET() {
+export async function GET(
+  request: NextRequest
+) {
   try {
     const supabaseUrl =
       process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -76,6 +78,11 @@ export async function GET() {
         supabaseUrl,
         serviceRoleKey
       );
+
+    const shouldSend =
+      request.nextUrl.searchParams.get(
+        "send"
+      ) === "1";
 
     const month =
       getPreviousMonth();
@@ -255,7 +262,7 @@ export async function GET() {
     }
 
     /*
-     * 4. Formiranje dry-run pregleda.
+     * 4. Formiranje pregleda.
      */
     const results =
       employers.map(
@@ -369,32 +376,133 @@ export async function GET() {
       );
 
     /*
-     * DRY-RUN:
-     * Ovde se NIJEDAN email ne šalje.
+     * 5. DRY-RUN.
+     * Bez ?send=1 nema slanja.
      */
+    if (!shouldSend) {
+      return NextResponse.json({
+        success: true,
+        mode: "DRY-RUN",
+        sent: false,
+        month,
+
+        summary: {
+          employersWithEmail:
+            employers.length,
+
+          readyToSend:
+            readyToSend.length,
+
+          alreadySent:
+            alreadySent.length,
+
+          withoutControls:
+            withoutControls.length,
+        },
+
+        results,
+
+        message:
+          "DRY-RUN završen. Nijedan email NIJE poslat.",
+      });
+    }
+
+    /*
+     * 6. TEST slanje samo PRVOG kandidata.
+     */
+    const firstCandidate =
+      readyToSend[0];
+
+    if (!firstCandidate) {
+      return NextResponse.json({
+        success: true,
+        mode: "TEST-SEND",
+        sent: false,
+        month,
+        message:
+          "Nema kandidata za slanje. Nijedan email NIJE poslat.",
+      });
+    }
+
+    const advisorName =
+      firstCandidate.advisorNames.join(
+        ", "
+      );
+
+    const origin =
+      request.nextUrl.origin;
+
+    const sendResponse =
+      await fetch(
+        `${origin}/api/send-email`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            to:
+              firstCandidate.recipientEmail,
+
+            employerId:
+              firstCandidate.employerId,
+
+            month,
+
+            advisorName,
+          }),
+          cache: "no-store",
+        }
+      );
+
+    const sendResult =
+      await sendResponse.json();
+
+    if (!sendResponse.ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          mode: "TEST-SEND",
+          sent: false,
+          employer:
+            firstCandidate,
+          error:
+            sendResult?.error ||
+            "Greška pri slanju mesečnog izveštaja.",
+        },
+        {
+          status:
+            sendResponse.status,
+        }
+      );
+    }
+
     return NextResponse.json({
       success: true,
-      mode: "DRY-RUN",
+      mode: "TEST-SEND",
+      sent: true,
       month,
 
-      summary: {
-        employersWithEmail:
-          employers.length,
+      employer: {
+        id:
+          firstCandidate.employerId,
 
-        readyToSend:
-          readyToSend.length,
+        name:
+          firstCandidate.employerName,
 
-        alreadySent:
-          alreadySent.length,
+        recipientEmail:
+          firstCandidate.recipientEmail,
 
-        withoutControls:
-          withoutControls.length,
+        completedControlsCount:
+          firstCandidate.completedControlsCount,
+
+        advisorNames:
+          firstCandidate.advisorNames,
       },
 
-      results,
-
       message:
-        "DRY-RUN završen. Nijedan email NIJE poslat.",
+        "TEST mesečni izveštaj je uspešno poslat samo prvom kandidatu.",
     });
   } catch (error) {
     console.error(
