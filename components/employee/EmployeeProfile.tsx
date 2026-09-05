@@ -9,14 +9,58 @@ import InfoRow from '@/components/ui/InfoRow'
 import PageContainer from '@/components/ui/PageContainer'
 import PageHeader from '@/components/ui/PageHeader'
 
+type MedicalExamination = {
+  id: string
+  employer_job_position_id: string
+  job_position_name: string
+  examination_type: string
+  examination_date: string | null
+  next_examination_date: string | null
+  report_number: string | null
+  status: string
+}
+
 type EmployeeProfileProps = {
   employerId: string
   employee: Employee
+  medicalExaminations?: MedicalExamination[]
+}
+
+function formatDate(
+  value: string | null,
+) {
+  if (!value) {
+    return '—'
+  }
+
+  const [year, month, day] =
+    value.split('-')
+
+  if (!year || !month || !day) {
+    return value
+  }
+
+  return `${day}.${month}.${year}.`
+}
+
+function getExaminationTypeLabel(
+  value: string,
+) {
+  if (value === 'PERIODIC') {
+    return 'Periodični pregled'
+  }
+
+  if (value === 'PREVIOUS') {
+    return 'Prethodni pregled'
+  }
+
+  return value
 }
 
 export default function EmployeeProfile({
   employerId,
   employee,
+  medicalExaminations = [],
 }: EmployeeProfileProps) {
   return (
     <PageContainer>
@@ -108,6 +152,74 @@ export default function EmployeeProfile({
             <p style={emptyText}>—</p>
           )}
         </Card>
+
+        <Card title="Lekarski pregledi">
+          {medicalExaminations.length > 0 ? (
+            <div style={medicalList}>
+              {medicalExaminations.map(
+                (examination) => (
+                  <div
+                    key={examination.id}
+                    style={medicalItem}
+                  >
+                    <div style={medicalContent}>
+                      <div style={medicalJobName}>
+                        {examination.job_position_name}
+                      </div>
+
+                      <div style={medicalDetails}>
+                        <span>
+                          {getExaminationTypeLabel(
+                            examination.examination_type,
+                          )}
+                        </span>
+
+                        <span>
+                          Poslednji pregled:{' '}
+                          <strong>
+                            {formatDate(
+                              examination.examination_date,
+                            )}
+                          </strong>
+                        </span>
+
+                        <span>
+                          Sledeći pregled:{' '}
+                          <strong>
+                            {formatDate(
+                              examination.next_examination_date,
+                            )}
+                          </strong>
+                        </span>
+
+                        <span>
+                          Broj izveštaja:{' '}
+                          <strong>
+                            {examination.report_number ??
+                              '—'}
+                          </strong>
+                        </span>
+                      </div>
+                    </div>
+
+                    <Link
+                      href={`/dashboard/lekarski-pregledi/evidentiraj?recordId=${encodeURIComponent(
+                        examination.id,
+                      )}`}
+                      style={recordMedicalLink}
+                    >
+                      Evidentiraj obavljeni pregled
+                    </Link>
+                  </div>
+                ),
+              )}
+            </div>
+          ) : (
+            <p style={emptyText}>
+              Nema učitanih lekarskih pregleda.
+            </p>
+          )}
+        </Card>
       </div>
     </PageContainer>
   )
@@ -173,6 +285,58 @@ const openJobLink: CSSProperties = {
   textDecoration: 'none',
   fontSize: '13px',
   fontWeight: 600,
+  whiteSpace: 'nowrap',
+}
+
+const medicalList: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 12,
+}
+
+const medicalItem: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 16,
+  padding: '14px 16px',
+  border: '1px solid #e5e7eb',
+  borderRadius: 8,
+  background: '#ffffff',
+  flexWrap: 'wrap',
+}
+
+const medicalContent: CSSProperties = {
+  flex: 1,
+  minWidth: 260,
+}
+
+const medicalJobName: CSSProperties = {
+  fontSize: 14,
+  fontWeight: 800,
+  color: '#111827',
+}
+
+const medicalDetails: CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '6px 16px',
+  marginTop: 8,
+  color: '#64748b',
+  fontSize: 12,
+}
+
+const recordMedicalLink: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  padding: '9px 13px',
+  border: '1px solid #16a34a',
+  borderRadius: 7,
+  background: '#ffffff',
+  color: '#15803d',
+  textDecoration: 'none',
+  fontSize: 13,
+  fontWeight: 700,
   whiteSpace: 'nowrap',
 }
 
