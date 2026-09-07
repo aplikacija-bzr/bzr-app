@@ -12,6 +12,18 @@ export type EmployerJobPosition = {
   active: boolean
 }
 
+export type EmployerJobPositionHazard = {
+  id: string
+  employer_job_position_id: string
+  hazard_id: string
+  activities: string
+  code: string
+  name: string
+  category: string
+  article_number: number
+  sort_order: number
+}
+
 type JobPositionRelation = {
   id: string
   name: string
@@ -29,6 +41,26 @@ type EmployerJobPositionDatabaseRow = {
   job_positions:
     | JobPositionRelation
     | JobPositionRelation[]
+    | null
+}
+
+type HazardRelation = {
+  id: string
+  code: string
+  name: string
+  category: string
+  article_number: number
+  sort_order: number
+}
+
+type EmployerJobPositionHazardDatabaseRow = {
+  id: string
+  employer_job_position_id: string
+  hazard_id: string
+  activities: string
+  hazards:
+    | HazardRelation
+    | HazardRelation[]
     | null
 }
 
@@ -64,6 +96,41 @@ function mapEmployerJobPosition(
       row.increased_risk,
     active:
       row.active,
+  }
+}
+
+function mapEmployerJobPositionHazard(
+  row: EmployerJobPositionHazardDatabaseRow
+): EmployerJobPositionHazard | null {
+  const hazard =
+    Array.isArray(
+      row.hazards
+    )
+      ? row.hazards[0]
+      : row.hazards
+
+  if (!hazard) {
+    return null
+  }
+
+  return {
+    id: row.id,
+    employer_job_position_id:
+      row.employer_job_position_id,
+    hazard_id:
+      row.hazard_id,
+    activities:
+      row.activities,
+    code:
+      hazard.code,
+    name:
+      hazard.name,
+    category:
+      hazard.category,
+    article_number:
+      hazard.article_number,
+    sort_order:
+      hazard.sort_order,
   }
 }
 
@@ -169,4 +236,56 @@ export async function getEmployerJobPositionByJobPositionId(
   return mapEmployerJobPosition(
     data as unknown as EmployerJobPositionDatabaseRow
   )
+}
+
+export async function getEmployerJobPositionHazards(
+  employerJobPositionId: string
+): Promise<EmployerJobPositionHazard[]> {
+  const supabase =
+    await createClient()
+
+  const { data, error } =
+    await supabase
+      .from(
+        'employer_job_position_hazards'
+      )
+      .select(`
+        id,
+        employer_job_position_id,
+        hazard_id,
+        activities,
+        hazards (
+          id,
+          code,
+          name,
+          category,
+          article_number,
+          sort_order
+        )
+      `)
+      .eq(
+        'employer_job_position_id',
+        employerJobPositionId
+      )
+
+  if (error) {
+    throw error
+  }
+
+  return (data ?? [])
+    .map((row) =>
+      mapEmployerJobPositionHazard(
+        row as unknown as EmployerJobPositionHazardDatabaseRow
+      )
+    )
+    .filter(
+      (
+        item
+      ): item is EmployerJobPositionHazard =>
+        item !== null
+    )
+    .sort(
+      (a, b) =>
+        a.sort_order - b.sort_order
+    )
 }
