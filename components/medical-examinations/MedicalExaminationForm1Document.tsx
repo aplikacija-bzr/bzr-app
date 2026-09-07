@@ -15,15 +15,19 @@ type MedicalExaminationForm1DocumentProps = {
   data: MedicalExaminationForm1Data
 }
 
+const appUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  'https://bzr-app.vercel.app'
+
 Font.register({
   family: 'DejaVu Sans',
   fonts: [
     {
-      src: 'http://localhost:3000/fonts/DejaVuSans.ttf',
+      src: `${appUrl}/fonts/DejaVuSans.ttf`,
       fontWeight: 400,
     },
     {
-      src: 'http://localhost:3000/fonts/DejaVuSans-Bold.ttf',
+      src: `${appUrl}/fonts/DejaVuSans-Bold.ttf`,
       fontWeight: 700,
     },
   ],
