@@ -609,9 +609,10 @@ export async function getMedicalReferralData(
         ),
 
         employee_job_positions (
-          employer_job_positions (
-            id,
-            job_positions (
+  employer_job_positions (
+    id,
+    job_description,
+    job_positions (
               id,
               name,
               knowledge_job_profiles (
@@ -786,8 +787,12 @@ const knowledgeProfile =
       name:
         jobPositionRelation.name,
       jobTasks:
-        knowledgeProfile?.job_tasks ??
-        null,
+  employerJobPositionRelation
+    .job_description?.trim()
+    ? employerJobPositionRelation
+        .job_description
+    : knowledgeProfile?.job_tasks ??
+      null,
       hazards:
         knowledgeProfile?.hazards ??
         null,
@@ -847,9 +852,10 @@ type MedicalReferralQueryRow = {
   } | null
 
   employee_job_positions: {
-    employer_job_positions: {
-      id: string
-      job_positions: {
+  employer_job_positions: {
+    id: string
+    job_description: string | null
+    job_positions: {
         id: string
         name: string
 
