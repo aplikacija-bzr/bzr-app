@@ -3,6 +3,7 @@ import Link from 'next/link'
 
 import type { Employee } from '@/lib/employees'
 
+import InitialMedicalExaminationForm from '@/components/employee/InitialMedicalExaminationForm'
 import Badge from '@/components/ui/Badge'
 import Card from '@/components/ui/Card'
 import InfoRow from '@/components/ui/InfoRow'
@@ -62,6 +63,17 @@ export default function EmployeeProfile({
   employee,
   medicalExaminations = [],
 }: EmployeeProfileProps) {
+  const initialMedicalJobPositions =
+    employee.job_positions.map(
+      (jobPosition) => ({
+        id:
+          jobPosition
+            .employer_job_position_id,
+        name:
+          jobPosition.name,
+      }),
+    )
+
   return (
     <PageContainer>
       <PageHeader
@@ -100,12 +112,18 @@ export default function EmployeeProfile({
 
           <InfoRow
             label="Datum rođenja"
-            value={employee.date_of_birth ?? '—'}
+            value={
+              employee.date_of_birth ??
+              '—'
+            }
           />
 
           <InfoRow
             label="Mesto rođenja"
-            value={employee.place_of_birth ?? '—'}
+            value={
+              employee.place_of_birth ??
+              '—'
+            }
           />
         </Card>
 
@@ -114,7 +132,11 @@ export default function EmployeeProfile({
             <div>
               Broj radnih mesta:{' '}
               <strong>
-                {employee.job_positions.length}
+                {
+                  employee
+                    .job_positions
+                    .length
+                }
               </strong>
             </div>
 
@@ -126,21 +148,32 @@ export default function EmployeeProfile({
             </Link>
           </div>
 
-          {employee.job_positions.length > 0 ? (
+          {employee.job_positions
+            .length > 0 ? (
             <div style={jobList}>
               {employee.job_positions.map(
                 (jobPosition) => (
                   <div
-                    key={jobPosition.id}
-                    style={jobListItem}
+                    key={
+                      jobPosition.id
+                    }
+                    style={
+                      jobListItem
+                    }
                   >
-                    <div style={jobName}>
-                      {jobPosition.name}
+                    <div
+                      style={jobName}
+                    >
+                      {
+                        jobPosition.name
+                      }
                     </div>
 
                     <Link
                       href={`/employers/${employerId}/job-positions/${jobPosition.job_position_id}`}
-                      style={openJobLink}
+                      style={
+                        openJobLink
+                      }
                     >
                       Otvori radno mesto
                     </Link>
@@ -149,25 +182,47 @@ export default function EmployeeProfile({
               )}
             </div>
           ) : (
-            <p style={emptyText}>—</p>
+            <p style={emptyText}>
+              —
+            </p>
           )}
         </Card>
 
         <Card title="Lekarski pregledi">
-          {medicalExaminations.length > 0 ? (
+          {medicalExaminations.length >
+          0 ? (
             <div style={medicalList}>
               {medicalExaminations.map(
                 (examination) => (
                   <div
-                    key={examination.id}
-                    style={medicalItem}
+                    key={
+                      examination.id
+                    }
+                    style={
+                      medicalItem
+                    }
                   >
-                    <div style={medicalContent}>
-                      <div style={medicalJobName}>
-                        {examination.job_position_name}
+                    <div
+                      style={
+                        medicalContent
+                      }
+                    >
+                      <div
+                        style={
+                          medicalJobName
+                        }
+                      >
+                        {
+                          examination
+                            .job_position_name
+                        }
                       </div>
 
-                      <div style={medicalDetails}>
+                      <div
+                        style={
+                          medicalDetails
+                        }
+                      >
                         <span>
                           {getExaminationTypeLabel(
                             examination.examination_type,
@@ -175,7 +230,8 @@ export default function EmployeeProfile({
                         </span>
 
                         <span>
-                          Poslednji pregled:{' '}
+                          Poslednji
+                          pregled:{' '}
                           <strong>
                             {formatDate(
                               examination.examination_date,
@@ -184,7 +240,8 @@ export default function EmployeeProfile({
                         </span>
 
                         <span>
-                          Sledeći pregled:{' '}
+                          Sledeći
+                          pregled:{' '}
                           <strong>
                             {formatDate(
                               examination.next_examination_date,
@@ -193,7 +250,8 @@ export default function EmployeeProfile({
                         </span>
 
                         <span>
-                          Broj izveštaja:{' '}
+                          Broj
+                          izveštaja:{' '}
                           <strong>
                             {examination.report_number ??
                               '—'}
@@ -206,18 +264,52 @@ export default function EmployeeProfile({
                       href={`/dashboard/lekarski-pregledi/evidentiraj?recordId=${encodeURIComponent(
                         examination.id,
                       )}`}
-                      style={recordMedicalLink}
+                      style={
+                        recordMedicalLink
+                      }
                     >
-                      Evidentiraj obavljeni pregled
+                      Evidentiraj
+                      obavljeni pregled
                     </Link>
                   </div>
                 ),
               )}
             </div>
           ) : (
-            <p style={emptyText}>
-              Nema učitanih lekarskih pregleda.
-            </p>
+            <>
+              <p style={emptyText}>
+                Nema evidentiranih
+                lekarskih pregleda.
+              </p>
+
+              {initialMedicalJobPositions
+                .length > 0 ? (
+                <InitialMedicalExaminationForm
+                  employerId={
+                    employerId
+                  }
+                  employeeId={
+                    employee.id
+                  }
+                  jobPositions={
+                    initialMedicalJobPositions
+                  }
+                />
+              ) : (
+                <p
+                  style={
+                    medicalWarning
+                  }
+                >
+                  Zaposleni nema
+                  dodeljeno radno
+                  mesto. Pre unosa
+                  lekarskog pregleda
+                  potrebno je dodati
+                  radno mesto.
+                </p>
+              )}
+            </>
           )}
         </Card>
       </div>
@@ -265,7 +357,8 @@ const jobListItem: CSSProperties = {
   justifyContent: 'space-between',
   gap: 16,
   padding: '14px 16px',
-  border: '1px solid #e5e7eb',
+  border:
+    '1px solid #e5e7eb',
   borderRadius: '8px',
   background: '#ffffff',
 }
@@ -278,7 +371,8 @@ const jobName: CSSProperties = {
 const openJobLink: CSSProperties = {
   display: 'inline-block',
   padding: '9px 14px',
-  border: '1px solid #cbd5e1',
+  border:
+    '1px solid #cbd5e1',
   borderRadius: '7px',
   background: '#ffffff',
   color: '#0f172a',
@@ -300,7 +394,8 @@ const medicalItem: CSSProperties = {
   justifyContent: 'space-between',
   gap: 16,
   padding: '14px 16px',
-  border: '1px solid #e5e7eb',
+  border:
+    '1px solid #e5e7eb',
   borderRadius: 8,
   background: '#ffffff',
   flexWrap: 'wrap',
@@ -330,7 +425,8 @@ const recordMedicalLink: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   padding: '9px 13px',
-  border: '1px solid #16a34a',
+  border:
+    '1px solid #16a34a',
   borderRadius: 7,
   background: '#ffffff',
   color: '#15803d',
@@ -343,7 +439,8 @@ const recordMedicalLink: CSSProperties = {
 const editEmployeeLink: CSSProperties = {
   display: 'inline-block',
   padding: '10px 16px',
-  border: '1px solid #cbd5e1',
+  border:
+    '1px solid #cbd5e1',
   borderRadius: '7px',
   background: '#ffffff',
   color: '#0f172a',
@@ -356,4 +453,17 @@ const editEmployeeLink: CSSProperties = {
 const emptyText: CSSProperties = {
   margin: 0,
   color: '#64748b',
+}
+
+const medicalWarning:
+  CSSProperties = {
+  marginTop: 12,
+  marginBottom: 0,
+  padding: 12,
+  border:
+    '1px solid #fde68a',
+  borderRadius: 7,
+  background: '#fffbeb',
+  color: '#92400e',
+  fontSize: 13,
 }

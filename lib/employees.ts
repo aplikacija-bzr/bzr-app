@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 
 export type EmployeeJobPosition = {
   id: string
+  employer_job_position_id: string
   job_position_id: string
   name: string
   primary_position: boolean
@@ -12,6 +13,7 @@ type EmployeeJobPositionRelation = {
   primary_position: boolean
   active: boolean
   employer_job_positions: {
+    id: string
     job_positions: {
       id: string
       name: string
@@ -54,6 +56,7 @@ const employeeSelect = `
     primary_position,
     active,
     employer_job_positions!fk_employee_job_positions_employer_job_position (
+      id,
       job_positions!fk_employer_job_positions_job_position (
         id,
         name
@@ -77,20 +80,33 @@ function mapEmployee(
           relation.active
       )
       .map((relation) => {
-        const jobPosition =
+        const employerJobPosition =
           relation
             .employer_job_positions
+
+        const jobPosition =
+          employerJobPosition
             ?.job_positions
 
-        if (!jobPosition) {
+        if (
+          !employerJobPosition ||
+          !jobPosition
+        ) {
           return null
         }
 
         return {
           id: relation.id,
+
+          employer_job_position_id:
+            employerJobPosition.id,
+
           job_position_id:
             jobPosition.id,
-          name: jobPosition.name,
+
+          name:
+            jobPosition.name,
+
           primary_position:
             relation.primary_position,
         }
@@ -113,15 +129,23 @@ function mapEmployee(
 export async function getEmployeesByEmployerId(
   employerId: string
 ): Promise<Employee[]> {
-  const supabase = await createClient()
+  const supabase =
+    await createClient()
 
-  const { data, error } = await supabase
-    .from('employees')
-    .select(employeeSelect)
-    .eq('employer_id', employerId)
-    .eq('active', true)
-    .order('last_name')
-    .order('first_name')
+  const { data, error } =
+    await supabase
+      .from('employees')
+      .select(employeeSelect)
+      .eq(
+        'employer_id',
+        employerId
+      )
+      .eq(
+        'active',
+        true
+      )
+      .order('last_name')
+      .order('first_name')
 
   if (error) {
     throw error
@@ -138,13 +162,18 @@ export async function getEmployeesByEmployerId(
 export async function getEmployeeById(
   employeeId: string
 ): Promise<Employee | null> {
-  const supabase = await createClient()
+  const supabase =
+    await createClient()
 
-  const { data, error } = await supabase
-    .from('employees')
-    .select(employeeSelect)
-    .eq('id', employeeId)
-    .maybeSingle()
+  const { data, error } =
+    await supabase
+      .from('employees')
+      .select(employeeSelect)
+      .eq(
+        'id',
+        employeeId
+      )
+      .maybeSingle()
 
   if (error) {
     throw error
