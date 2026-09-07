@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { getEmployerJobPositionHazards } from '@/lib/employer-job-positions'
 
 export type MedicalExaminationStatus =
   | 'DRAFT'
@@ -689,6 +690,24 @@ const knowledgeProfile =
       'Nedostaju povezani podaci za generisanje uputa.'
     )
   }
+  const employerJobPositionHazards =
+  await getEmployerJobPositionHazards(
+    employerJobPositionRelation.id
+  )
+
+const employerHazardsText =
+  employerJobPositionHazards.length > 0
+    ? employerJobPositionHazards
+        .map((hazard) => {
+          const activities =
+            hazard.activities?.trim()
+
+          return activities
+            ? `${hazard.code} ${hazard.name} – ${activities}`
+            : `${hazard.code} ${hazard.name}`
+        })
+        .join('\n')
+    : null
 
   const {
     data: previousExaminationData,
@@ -794,8 +813,9 @@ const knowledgeProfile =
     : knowledgeProfile?.job_tasks ??
       null,
       hazards:
-        knowledgeProfile?.hazards ??
-        null,
+  employerHazardsText ??
+  knowledgeProfile?.hazards ??
+  null,
       medicalRequirements:
         knowledgeProfile
           ?.medical_requirements ??
