@@ -13,10 +13,11 @@ type InboxStatus =
 
 type WorkInboxItem = {
   id: string
-  sourceType:
+    sourceType:
     | 'training'
     | 'medical'
     | 'work_equipment'
+    | 'daily_bzr_control'
   sourceId: string
   targetUrl: string
   employerName: string
@@ -240,41 +241,37 @@ export default async function DashboardPage() {
                           {priority.title}
                         </h3>
 
-                        {priority.id ===
-                        'medical' ? (
-                          <div
-                            style={
-                              priorityActions
-                            }
-                          >
-                            <Link
-                              href="/dashboard/lekarski-pregledi"
-                              style={
-                                smallPrimaryButton
-                              }
-                            >
-                              Otvori
-                            </Link>
+                        {priority.id === 'medical' ? (
+  <div style={priorityActions}>
+    <Link
+      href="/dashboard/lekarski-pregledi"
+      style={smallPrimaryButton}
+    >
+      Otvori
+    </Link>
 
-                            <Link
-                              href="/dashboard/lekarski-pregledi/obrazac-1"
-                              style={
-                                form1Button
-                              }
-                            >
-                              Obrazac 1
-                            </Link>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            style={
-                              smallPrimaryButton
-                            }
-                          >
-                            Otvori
-                          </button>
-                        )}
+    <Link
+      href="/dashboard/lekarski-pregledi/obrazac-1"
+      style={form1Button}
+    >
+      Obrazac 1
+    </Link>
+  </div>
+) : priority.id === 'training' ? (
+  <Link
+    href="/dashboard/obuke"
+    style={smallPrimaryButton}
+  >
+    Otvori
+  </Link>
+) : (
+  <button
+    type="button"
+    style={smallPrimaryButton}
+  >
+    Otvori
+  </button>
+)}
                       </div>
 
                       <div

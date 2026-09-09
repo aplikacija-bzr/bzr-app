@@ -6,6 +6,9 @@ import {
 import {
   createAdminClient,
 } from '@/lib/supabase/admin'
+import {
+  createClient as createServerClient,
+} from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -109,22 +112,36 @@ export async function POST(
         )
 
     if (
-      sourceSpreadsheetId?.trim()
-    ) {
-      mappingQuery =
-        mappingQuery.eq(
-          'source_spreadsheet_id',
-          sourceSpreadsheetId.trim()
-        )
-    } else if (
-      employerName?.trim()
-    ) {
-      mappingQuery =
-        mappingQuery.eq(
-          'master_employer_name',
-          employerName.trim()
-        )
-    } else {
+  sourceSpreadsheetId?.trim() &&
+  employerName?.trim()
+) {
+  mappingQuery =
+    mappingQuery
+      .eq(
+        'source_spreadsheet_id',
+        sourceSpreadsheetId.trim()
+      )
+      .eq(
+        'master_employer_name',
+        employerName.trim()
+      )
+} else if (
+  employerName?.trim()
+) {
+  mappingQuery =
+    mappingQuery.eq(
+      'master_employer_name',
+      employerName.trim()
+    )
+} else if (
+  sourceSpreadsheetId?.trim()
+) {
+  mappingQuery =
+    mappingQuery.eq(
+      'source_spreadsheet_id',
+      sourceSpreadsheetId.trim()
+    )
+} else {
       return NextResponse.json(
         {
           success: false,
@@ -301,6 +318,124 @@ export async function POST(
       {
         success: false,
         error: errorDetails,
+      },
+      {
+        status: 500,
+      }
+    )
+  }
+}
+type DailyBzrControlStatusRequest = {
+  controlId?: string
+  reactionStatus?:
+    | 'NEW'
+    | 'IN_PROGRESS'
+    | 'COMPLETED'
+}
+
+export async function PATCH(
+  request: NextRequest
+) {
+  try {
+        const authClient =
+      await createServerClient()
+
+    const {
+      data: { user },
+      error: authError,
+    } =
+      await authClient.auth.getUser()
+
+    if (
+      authError ||
+      !user
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'Korisnik nije prijavljen.',
+        },
+        {
+          status: 401,
+        }
+      )
+    }
+    const body =
+      (await request.json()) as
+        DailyBzrControlStatusRequest
+
+    const {
+      controlId,
+      reactionStatus,
+    } = body
+
+    if (
+      !controlId ||
+      !reactionStatus ||
+      ![
+        'NEW',
+        'IN_PROGRESS',
+        'COMPLETED',
+      ].includes(reactionStatus)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'Neispravni podaci za promenu statusa.',
+        },
+        {
+          status: 400,
+        }
+      )
+    }
+
+    const supabase =
+      createAdminClient()
+
+    const {
+      data: control,
+      error,
+    } =
+      await supabase
+        .from(
+          'daily_bzr_controls'
+        )
+        .update({
+          reaction_status:
+            reactionStatus,
+          updated_at:
+            new Date().toISOString(),
+        })
+        .eq(
+          'id',
+          controlId
+        )
+        .select('*')
+        .single()
+
+    if (error) {
+      throw error
+    }
+
+    return NextResponse.json({
+      success: true,
+      control,
+    })
+  } catch (error: unknown) {
+    console.error(
+      'DAILY BZR CONTROL STATUS:',
+      error
+    )
+
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Nepoznata greška.',
       },
       {
         status: 500,

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export type WorkInboxPriority =
   | 'critical'
@@ -13,6 +14,7 @@ export type WorkInboxSourceType =
   | 'training'
   | 'medical'
   | 'work_equipment'
+  | 'daily_bzr_control'
 
 export type WorkInboxItem = {
   id: string
@@ -38,6 +40,51 @@ type TrainingSessionRow = {
   status_id: number
   reason_code: string | null
   start_date: string
+}
+
+type TrainingRecordRow = {
+  id: string
+  employer_id: string
+  employee_id: string
+  employer_job_position_id: string
+  assessment_date: string | null
+  next_training_date: string
+  reminder_date: string | null
+  status: string
+  employees:
+    | {
+        first_name: string
+        last_name: string
+      }
+    | {
+        first_name: string
+        last_name: string
+      }[]
+    | null
+  employer_job_positions:
+    | {
+        internal_name: string | null
+        job_positions:
+          | {
+              name: string
+            }
+          | {
+              name: string
+            }[]
+          | null
+      }
+    | {
+        internal_name: string | null
+        job_positions:
+          | {
+              name: string
+            }
+          | {
+              name: string
+            }[]
+          | null
+      }[]
+    | null
 }
 
 type MedicalExaminationRow = {
@@ -88,6 +135,20 @@ type WorkEquipmentReportRow = {
   active: boolean
   work_equipment_report_items:
     WorkEquipmentReportItemRow[]
+}
+type DailyBzrControlRow = {
+  id: string
+  employer_id: string
+  control_date: string
+  sent_at: string | null
+  status_value: number
+  location: string | null
+  coordinator: string | null
+  photo_url: string | null
+  reaction_status:
+    | 'NEW'
+    | 'IN_PROGRESS'
+    | 'COMPLETED'
 }
 
 function mapTrainingStatus(
@@ -274,6 +335,28 @@ function getTrainingReasonLabel(
   return (
     'Rok za realizaciju aktivnosti ' +
     'približava se isteku.'
+  )
+}
+
+
+function getTrainingRecordReasonLabel(
+  dateValue: string,
+): string {
+  const daysUntil =
+    getDaysUntil(
+      dateValue,
+    )
+
+  if (daysUntil <= 7) {
+    return (
+      'Potrebno je organizovati periodičnu ' +
+      'obuku i proveru obučenosti zaposlenog.'
+    )
+  }
+
+  return (
+    'Približava se rok za periodičnu ' +
+    'obuku i proveru obučenosti zaposlenog.'
   )
 }
 
@@ -530,6 +613,207 @@ async function getTrainingInboxItems():
         }
       },
     ),
+  )
+}
+
+// =====================================================
+// ROKOVI OBUKE IZ CENTRALNE EVIDENCIJE
+//
+// Prikazuju se evidentirani zaposleni kojima:
+// DANAS <= next_training_date <= DANAS + 30 DANA
+//
+// Ovo je odvojeno od već pokrenutih postupaka obuke
+// koji se i dalje čitaju iz training_sessions.
+// =====================================================
+
+async function getTrainingRecordInboxItems():
+  Promise<WorkInboxItem[]> {
+  const supabase =
+    await createClient()
+
+  const today =
+    getTodayDateValue()
+
+  const upperDateLimit =
+    getUpperDateLimit()
+
+  const {
+    data,
+    error,
+  } =
+    await supabase
+      .from(
+        'training_records',
+      )
+      .select(`
+        id,
+        employer_id,
+        employee_id,
+        employer_job_position_id,
+        assessment_date,
+        next_training_date,
+        reminder_date,
+        status,
+        employees (
+          first_name,
+          last_name
+        ),
+        employer_job_positions (
+          internal_name,
+          job_positions (
+            name
+          )
+        )
+      `)
+      .eq(
+        'status',
+        'RECORDED',
+      )
+      .not(
+        'next_training_date',
+        'is',
+        null,
+      )
+      .gte(
+        'next_training_date',
+        today,
+      )
+      .lte(
+        'next_training_date',
+        upperDateLimit,
+      )
+      .order(
+        'next_training_date',
+        {
+          ascending: true,
+        },
+      )
+
+  if (error) {
+    throw error
+  }
+
+  const rows =
+    (data ?? []) as
+      TrainingRecordRow[]
+
+  return rows.map(
+    (row): Omit<WorkInboxItem, 'employerName'> => {
+      const employeeRelation =
+        Array.isArray(
+          row.employees,
+        )
+          ? row.employees[0]
+          : row.employees
+
+      const employerJobPositionRelation =
+        Array.isArray(
+          row.employer_job_positions,
+        )
+          ? row.employer_job_positions[0]
+          : row.employer_job_positions
+
+      const jobPositionRelation =
+        Array.isArray(
+          employerJobPositionRelation
+            ?.job_positions,
+        )
+          ? employerJobPositionRelation
+              ?.job_positions[0]
+          : employerJobPositionRelation
+              ?.job_positions
+
+      const employeeName =
+        [
+          employeeRelation?.first_name ??
+            '',
+          employeeRelation?.last_name ??
+            '',
+        ]
+          .join(' ')
+          .trim() ||
+        'Nepoznat zaposleni'
+
+      const jobPositionName =
+        employerJobPositionRelation
+          ?.internal_name ||
+        jobPositionRelation?.name ||
+        'Nepoznato radno mesto'
+
+      return {
+        id:
+          `training-record-${row.id}`,
+
+        sourceType:
+          'training',
+
+        sourceId:
+          row.id,
+
+        targetUrl:
+          `/dashboard/obuke/evidencija?employerId=${encodeURIComponent(
+            row.employer_id,
+          )}&recordId=${encodeURIComponent(
+            row.id,
+          )}`,
+
+        employerId:
+          row.employer_id,
+
+        category:
+          'OBUKA ZA BZR',
+
+        title:
+          'Organizovati periodičnu obuku zaposlenog',
+
+        subject:
+          `${employeeName} – ${jobPositionName}`,
+
+        deadlineLabel:
+          getDeadlineLabel(
+            row.next_training_date,
+          ),
+
+        deadlineDate:
+          row.next_training_date,
+
+        reasonLabel:
+          getTrainingRecordReasonLabel(
+            row.next_training_date,
+          ),
+
+        priority:
+          getPriority(
+            row.next_training_date,
+          ),
+
+        status:
+          'not_started',
+      }
+    },
+  ).reduce<
+    Promise<WorkInboxItem[]>
+  >(
+    async (
+      previousPromise,
+      item,
+    ) => {
+      const items =
+        await previousPromise
+
+      const employerName =
+        await getEmployerName(
+          item.employerId,
+        )
+
+      items.push({
+        ...item,
+        employerName,
+      })
+
+      return items
+    },
+    Promise.resolve([]),
   )
 }
 
@@ -1223,7 +1507,127 @@ async function getWorkEquipmentInboxItems():
     ),
   )
 }
+async function getDailyBzrControlInboxItems():
+  Promise<WorkInboxItem[]> {
+  const supabase =
+    createAdminClient()
 
+  const today =
+    getTodayDateValue()
+
+  const {
+    data,
+    error,
+  } =
+    await supabase
+      .from(
+        'daily_bzr_controls',
+      )
+      .select(`
+        id,
+        employer_id,
+        control_date,
+        sent_at,
+        status_value,
+        location,
+        coordinator,
+        photo_url,
+        reaction_status
+      `)
+      .eq(
+        'control_date',
+        today,
+      )
+      .eq(
+        'status_value',
+        1,
+      )
+      .neq(
+        'reaction_status',
+        'COMPLETED',
+      )
+      .order(
+        'sent_at',
+        {
+          ascending: true,
+        },
+      )
+
+  if (error) {
+    throw error
+  }
+
+  const rows =
+    (data ?? []) as
+      DailyBzrControlRow[]
+
+  return Promise.all(
+    rows.map(
+      async (row) => {
+        const employerName =
+          await getEmployerName(
+            row.employer_id,
+          )
+
+        const locationLabel =
+          row.location
+            ? `Lokacija: ${row.location}`
+            : 'Lokacija nije navedena'
+
+        const coordinatorLabel =
+          row.coordinator
+            ? `Koordinator: ${row.coordinator}`
+            : 'Koordinator nije naveden'
+
+        return {
+          id:
+            `daily-bzr-control-${row.id}`,
+
+          sourceType:
+            'daily_bzr_control',
+
+          sourceId:
+            row.id,
+
+          targetUrl:
+            '/dashboard',
+
+          employerId:
+            row.employer_id,
+
+          employerName,
+
+          category:
+            'SVAKODNEVNA KONTROLA',
+
+          title:
+            'Prijavljena promena stanja na lokaciji',
+
+          subject:
+            `${locationLabel} – ${coordinatorLabel}`,
+
+          deadlineLabel:
+            'Potrebna reakcija danas',
+
+          deadlineDate:
+            row.control_date,
+
+          reasonLabel:
+            'Poslodavac je u svakodnevnoj kontroli prijavio promenu koja zahteva reakciju INPRO.',
+
+          priority:
+            'critical',
+
+          status:
+            row.reaction_status ===
+            'IN_PROGRESS'
+              ? 'in_progress'
+              : 'not_started',
+        }
+      },
+    ),
+  )
+}
 // =====================================================
 // KOMBINOVANI WORK INBOX
 // =====================================================
@@ -1231,25 +1635,31 @@ async function getWorkEquipmentInboxItems():
 export async function getWorkInboxItems():
   Promise<WorkInboxItem[]> {
   const [
-    trainingItems,
-    medicalItems,
-    waitingMedicalItems,
-    workEquipmentItems,
-  ] =
-    await Promise.all([
-      getTrainingInboxItems(),
-      getMedicalInboxItems(),
-      getWaitingMedicalSessionInboxItems(),
-      getWorkEquipmentInboxItems(),
-    ])
+  trainingItems,
+  trainingRecordItems,
+  medicalItems,
+  waitingMedicalItems,
+  workEquipmentItems,
+  dailyBzrControlItems,
+] =
+  await Promise.all([
+    getTrainingInboxItems(),
+    getTrainingRecordInboxItems(),
+    getMedicalInboxItems(),
+    getWaitingMedicalSessionInboxItems(),
+    getWorkEquipmentInboxItems(),
+    getDailyBzrControlInboxItems(),
+  ])
 
   const allItems:
-    WorkInboxItem[] = [
-      ...trainingItems,
-      ...medicalItems,
-      ...waitingMedicalItems,
-      ...workEquipmentItems,
-    ]
+  WorkInboxItem[] = [
+    ...trainingItems,
+    ...trainingRecordItems,
+    ...medicalItems,
+    ...waitingMedicalItems,
+    ...workEquipmentItems,
+    ...dailyBzrControlItems,
+  ]
 
   const priorityOrder:
     Record<
