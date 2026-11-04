@@ -1,0 +1,77 @@
+
+@page {
+  size: A4 portrait;
+  margin: 7mm;
+}
+
+@media print {
+
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    color: black !important;
+  }
+
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 10pt;
+    line-height: 1.25;
+  }
+
+  /* Glavni kontejner testa */
+  .test-print-page {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Tekstualna pitanja */
+  .print-text-question {
+    margin-bottom: 5mm !important;
+    break-inside: avoid !important;
+  }
+
+  /* Vizuelna pitanja */
+  .print-visual-question {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 0 3mm 0 !important;
+    padding: 0 !important;
+    break-before: auto !important;
+    page-break-before: auto !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Kontejner postera */
+  .print-poster-container {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Maksimalno iskoriscenje sirine A4 */
+  .print-poster-container img {
+    display: block !important;
+    width: 100% !important;
+    max-width: 196mm !important;
+    max-height: none !important;
+    height: auto !important;
+    object-fit: contain !important;
+    margin: 0 auto !important;
+    border: none !important;
+  }
+
+  /* Uklanjanje nepotrebnih razmaka */
+  .print-visual-question > div {
+    margin-left: 0 !important;
+    margin-top: 0 !important;
+  }
+}

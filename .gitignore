@@ -44,3 +44,18 @@ next-env.d.ts
 # next-pwa generated files
 /public/sw.js
 /public/workbox-*.js
+
+# INPRO BZR - lokalne rezervne kopije
+/backup/
+*.bak
+*.backup
+*.rar
+*.zip
+
+# Lokalni privremeni fajlovi
+*.tmp
+*.temp
+
+# INPRO BZR - rezervne kopije programskih fajlova
+*BACKUP*
+*backup*.tsx
