@@ -81,6 +81,22 @@ export default async function DashboardTestPage() {
       <main style={{ padding: 40 }}>
         <h1>Kreiranje testa</h1>
 
+<a
+  href="/dashboard/obuke"
+  style={{
+    display: 'inline-block',
+    marginBottom: 20,
+    padding: '12px 20px',
+    backgroundColor: '#2563eb',
+    color: '#ffffff',
+    borderRadius: 8,
+    fontWeight: 700,
+    textDecoration: 'none',
+  }}
+>
+  ← POVRATAK NA OBUKE BZR
+</a>
+
         <p>
           Greška pri učitavanju modula:{' '}
           {error.message}
@@ -188,6 +204,24 @@ export default async function DashboardTestPage() {
   return (
     <main style={{ padding: 40 }}>
       <h1>Kreiranje testa</h1>
+
+<a
+  href="/dashboard/obuke"
+  style={{
+    display: 'inline-block',
+    marginTop: 12,
+    marginBottom: 24,
+    padding: '12px 20px',
+    backgroundColor: '#2563eb',
+    color: '#ffffff',
+    borderRadius: 8,
+    fontWeight: 700,
+    textDecoration: 'none',
+  }}
+>
+  ← POVRATAK NA OBUKE BZR
+</a>
+
 
       <p>
         Aktivni moduli:{' '}
