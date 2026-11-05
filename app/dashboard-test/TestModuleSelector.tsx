@@ -49,6 +49,8 @@ export default function TestModuleSelector({
   const [testName, setTestName] = useState('')
   const [isCreating, setIsCreating] = useState(false)
 
+const [createdTestId, setCreatedTestId] = useState<string | null>(null)
+
   const [moduleModes, setModuleModes] =
     useState<Record<string, QuestionMode>>({})
 
@@ -666,11 +668,23 @@ lineHeight: 1.15,
                 )
               }
 
-              alert(
-                `Test je upisan u bazu.\n\n` +
-                  `Naziv: ${result.test.name}\n` +
-                  `ID: ${result.test.id}`
-              )
+
+
+setCreatedTestId(result.test.id)
+
+
+alert(
+  `Test je uspešno kreiran.\n\n` +
+  `Naziv: ${result.test.name}\n\n` +
+  `Kliknite OK za otvaranje testa i štampanje.`
+)
+
+window.open(
+  `/dashboard-test/preview/${createdTestId}`,
+  '_blank',
+  'noopener,noreferrer'
+)
+
             } catch (error: unknown) {
               const message =
                 error instanceof Error
@@ -720,6 +734,28 @@ lineHeight: 1.15,
             ? 'KREIRANJE...'
             : 'KREIRAJ TEST'}
         </button>
+
+{createdTestId && (
+  <div style={{ marginTop: 16 }}>
+    <a
+      href={`/dashboard-test/preview/${createdTestId}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{
+        display: 'inline-block',
+        padding: '12px 20px',
+        backgroundColor: '#047857',
+        color: '#ffffff',
+        borderRadius: 8,
+        fontWeight: 700,
+        textDecoration: 'none',
+      }}
+    >
+      OTVORI KREIRANI TEST / PDF
+    </a>
+  </div>
+)}
+
       </div>
     </div>
   )

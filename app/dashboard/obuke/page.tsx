@@ -114,6 +114,26 @@ export default function ObukePage() {
             </div>
           </div>
         </Link>
+
+        <Link
+          href="/dashboard-test"
+          style={cardStyle}
+        >
+          <div style={iconStyle}>+</div>
+
+          <div>
+            <div style={cardTitle}>
+              KREIRAJ TEST
+            </div>
+
+            <div style={cardDescription}>
+              Izaberi module i pitanja,
+              kreiraj novi test za teorijsku
+              proveru i pripremi ga za štampanje.
+            </div>
+          </div>
+        </Link>
+
       </div>
     </main>
   )
