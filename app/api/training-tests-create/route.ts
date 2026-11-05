@@ -5,6 +5,9 @@ import {
 
 import { createClient } from '@supabase/supabase-js'
 
+import { createClient as createServerSupabaseClient } from '@/lib/supabase/server'
+
+
 export const dynamic = 'force-dynamic'
 
 const supabase = createClient(
@@ -19,6 +22,40 @@ export async function POST(
   request: NextRequest
 ) {
   try {
+
+    const userSupabase = await createServerSupabaseClient()
+
+    const {
+      data: { user },
+      error: authError,
+    } = await userSupabase.auth.getUser()
+
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Prijava je obavezna.' },
+        { status: 401 }
+      )
+    }
+
+    const { data: profile, error: profileError } =
+      await userSupabase
+        .from('user_profiles')
+        .select('role, active')
+        .eq('id', user.id)
+        .maybeSingle()
+
+    if (
+      profileError ||
+      !profile ||
+      !profile.active ||
+      !['ADMIN', 'OPERATER'].includes(profile.role)
+    ) {
+      return NextResponse.json(
+        { error: 'Nemate ovlašćenje za kreiranje testa.' },
+        { status: 403 }
+      )
+    }
+
     const body = await request.json()
 
     const name =

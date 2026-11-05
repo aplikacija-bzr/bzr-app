@@ -2178,6 +2178,26 @@ return (
 
                 <div style={{ marginTop: 22, paddingTop: 18, borderTop: '1px solid #e5e7eb' }}>
                   <div style={{ fontWeight: 700, fontSize: 16 }}>Teorijska provera</div>
+
+<div style={{ marginTop: 12, marginBottom: 16 }}>
+  <a
+    href="/dashboard-test"
+    target="_blank"
+    rel="noopener noreferrer"
+    style={{
+      display: 'inline-block',
+      padding: '12px 18px',
+      backgroundColor: '#2563eb',
+      color: '#ffffff',
+      borderRadius: 8,
+      fontWeight: 700,
+      textDecoration: 'none',
+    }}
+  >
+    IZABERI MODULE I KREIRAJ TEST
+  </a>
+</div>
+
  <div style={{ marginTop: 14 }}>
   <label
     style={{
@@ -2282,6 +2302,47 @@ return (
     >
       OTVORI TEST / PDF
     </button>
+
+<button
+  type="button"
+  onClick={async () => {
+    try {
+      const response = await fetch(
+        '/api/training-tests',
+        { cache: 'no-store' }
+      )
+
+      if (!response.ok) {
+        throw new Error(
+          'Greška pri učitavanju testova.'
+        )
+      }
+
+      const result = await response.json()
+
+      setAvailableTests(
+        (result.tests ?? []).filter(
+          (test: any) => test.questionCount > 0
+        )
+      )
+    } catch (error) {
+      console.error(error)
+      alert('Nije uspelo osvežavanje spiska testova.')
+    }
+  }}
+  style={{
+    padding: '10px 16px',
+    border: '1px solid #2563eb',
+    borderRadius: 8,
+    backgroundColor: '#eff6ff',
+    color: '#1d4ed8',
+    fontWeight: 700,
+    cursor: 'pointer',
+  }}
+>
+  OSVEŽI TESTOVE
+</button>
+
   </div>
 
   {assessment.trainingTestId &&

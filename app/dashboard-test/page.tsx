@@ -1,6 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
 import TestModuleSelector from './TestModuleSelector'
 
+import { redirect } from 'next/navigation'
+import { createClient as createUserClient } from '@/lib/supabase/server'
+
+
 export const dynamic = 'force-dynamic'
 
 const supabase = createClient(
@@ -9,6 +13,34 @@ const supabase = createClient(
 )
 
 export default async function DashboardTestPage() {
+
+  const userSupabase = await createUserClient()
+
+  const {
+    data: { user },
+    error: authError,
+  } = await userSupabase.auth.getUser()
+
+  if (authError || !user) {
+    redirect('/login')
+  }
+
+  const { data: profile, error: profileError } =
+    await userSupabase
+      .from('user_profiles')
+      .select('role, active')
+      .eq('id', user.id)
+      .maybeSingle()
+
+  if (
+    profileError ||
+    !profile ||
+    !profile.active ||
+    !['ADMIN', 'OPERATER'].includes(profile.role)
+  ) {
+    redirect('/dashboard')
+  }
+
   const { data: modules, error } = await supabase
     .from('training_modules')
     .select(`
