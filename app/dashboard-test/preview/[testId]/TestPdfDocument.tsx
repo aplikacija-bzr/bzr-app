@@ -222,8 +222,8 @@ export default function TestPdfDocument({
                                   src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/training-question-media/${media.storage_path}`}
 
 style={{
-  width: 250,
-  height: 165,
+  width: 450,
+  height: 300,
   objectFit: 'contain',
   alignSelf: 'center',
 }}

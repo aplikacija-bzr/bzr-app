@@ -1,6 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+
+import { useEffect, useState } from 'react'
+
 
 type QuestionOption = {
   id: string
@@ -50,6 +52,48 @@ export default function TestModuleSelector({
   const [isCreating, setIsCreating] = useState(false)
 
 const [createdTestId, setCreatedTestId] = useState<string | null>(null)
+
+const [existingTests, setExistingTests] = useState<
+  { id: string; name: string; questionCount: number }[]
+>([])
+
+const [loadingTests, setLoadingTests] = useState(true)
+const [testSearch, setTestSearch] = useState('')
+const [testsError, setTestsError] = useState('')
+
+async function loadExistingTests() {
+  setLoadingTests(true)
+  setTestsError('')
+
+  try {
+    const response = await fetch(
+      '/api/training-tests',
+      { cache: 'no-store' }
+    )
+
+    const result = await response.json()
+
+    if (!response.ok) {
+      throw new Error(
+        result.error ?? 'Greška pri učitavanju testova.'
+      )
+    }
+
+    setExistingTests(result.tests ?? [])
+  } catch (error) {
+    setTestsError(
+      error instanceof Error
+        ? error.message
+        : 'Nije moguće učitati postojeće testove.'
+    )
+  } finally {
+    setLoadingTests(false)
+  }
+}
+
+useEffect(() => {
+  void loadExistingTests()
+}, [])
 
   const [moduleModes, setModuleModes] =
     useState<Record<string, QuestionMode>>({})
@@ -210,6 +254,104 @@ function toggleModule(moduleId: string) {
 
   return (
     <div style={{ marginTop: 24 }}>
+
+<section style={{
+  padding: 20,
+  marginBottom: 30,
+  border: '1px solid #d1d5db',
+  borderRadius: 12,
+  backgroundColor: '#f8fafc',
+}}>
+  <h2>POSTOJEĆI TESTOVI</h2>
+
+  <p>
+    Pregled i ponovno štampanje ranije kreiranih testova.
+  </p>
+
+  <input
+    type="text"
+    value={testSearch}
+    onChange={(e) => setTestSearch(e.target.value)}
+    placeholder="Pretraži testove po nazivu..."
+    style={{
+      width: '100%',
+      maxWidth: 500,
+      padding: 12,
+      marginBottom: 16,
+      border: '1px solid #cbd5e1',
+      borderRadius: 8,
+    }}
+  />
+
+  <button
+    type="button"
+    onClick={() => void loadExistingTests()}
+    disabled={loadingTests}
+    style={{
+      padding: '10px 16px',
+      marginBottom: 16,
+      cursor: 'pointer',
+    }}
+  >
+    OSVEŽI SPISAK
+  </button>
+
+  {loadingTests && <p>Učitavanje testova...</p>}
+
+  {testsError && (
+    <p style={{ color: '#dc2626' }}>{testsError}</p>
+  )}
+
+  {!loadingTests && !testsError &&
+    existingTests
+      .filter((test) =>
+        test.name.toLowerCase().includes(
+          testSearch.toLowerCase()
+        )
+      )
+      .map((test) => (
+        <div
+          key={test.id}
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 12,
+            padding: '12px 0',
+            borderBottom: '1px solid #e5e7eb',
+          }}
+        >
+          <span>
+            <strong>{test.name}</strong>
+            {' — '}
+            {test.questionCount} pitanja
+          </span>
+
+          <a
+            href={`/dashboard-test/preview/${test.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              padding: '10px 14px',
+              backgroundColor: '#047857',
+              color: '#ffffff',
+              borderRadius: 8,
+              textDecoration: 'none',
+              fontWeight: 700,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            OTVORI / ŠTAMPAJ PDF
+          </a>
+        </div>
+      ))}
+
+  {!loadingTests && !testsError &&
+    existingTests.length === 0 && (
+      <p>Nema dostupnih aktivnih testova.</p>
+    )}
+</section>
+
       <div style={{ marginBottom: 20 }}>
         <label
           style={{
@@ -671,6 +813,8 @@ lineHeight: 1.15,
 
 
 setCreatedTestId(result.test.id)
+await loadExistingTests()
+
 
 
 alert(
