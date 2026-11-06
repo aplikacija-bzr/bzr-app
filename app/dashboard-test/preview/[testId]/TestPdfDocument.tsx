@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import {
   Document,
@@ -173,7 +173,7 @@ export default function TestPdfDocument({
                   style={{
                     fontSize: 11,
                     fontWeight: 'bold',
-                    marginBottom: 8,
+                    marginBottom: 4,
                     paddingBottom: 4,
                     borderBottomWidth: 1,
                   }}
@@ -189,7 +189,7 @@ export default function TestPdfDocument({
                       key={question.id}
                       wrap={false}
                       style={{
-                        marginBottom: 7,
+                        marginBottom: 3,
                       }}
                     >
                       <Text>
@@ -222,8 +222,8 @@ export default function TestPdfDocument({
                                   src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/training-question-media/${media.storage_path}`}
 
 style={{
-  width: 450,
-  height: 300,
+  width: 350,
+  height: 220,
   objectFit: 'contain',
   alignSelf: 'center',
 }}
@@ -241,7 +241,7 @@ style={{
       style={{
         marginTop: 6,
         marginLeft: 12,
-        marginBottom: 8,
+        marginBottom: 4,
       }}
     >
       <Text
@@ -259,7 +259,7 @@ style={{
         <View
           key={index}
           style={{
-            marginBottom: 7,
+            marginBottom: 3,
           }}
         >
           <Text
@@ -408,3 +408,6 @@ style={{
     </Document>
   );
 }
+
+
+
