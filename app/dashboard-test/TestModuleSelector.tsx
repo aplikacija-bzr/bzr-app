@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 
 import { useEffect, useState } from 'react'
@@ -253,7 +253,7 @@ function toggleModule(moduleId: string) {
     }, 0)
 
   return (
-    <div style={{ marginTop: 24 }}>
+    <div style={{ marginTop: 24, backgroundColor: "#ffffff", color: "#111827", minHeight: "100vh", padding: 16 }}>
 
 <section style={{
   padding: 20,
@@ -261,6 +261,7 @@ function toggleModule(moduleId: string) {
   border: '1px solid #d1d5db',
   borderRadius: 12,
   backgroundColor: '#f8fafc',
+  color: '#111827',
 }}>
   <h2>POSTOJEĆI TESTOVI</h2>
 

@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+﻿import { createClient } from '@supabase/supabase-js'
 import TestModuleSelector from './TestModuleSelector'
 
 import { redirect } from 'next/navigation'
@@ -78,7 +78,7 @@ export default async function DashboardTestPage() {
 
   if (error) {
     return (
-      <main style={{ padding: 40 }}>
+      <main style={{ padding: 40, backgroundColor: "#ffffff", color: "#111827", minHeight: "100vh" }}>
         <h1>Kreiranje testa</h1>
 
 <a
@@ -202,7 +202,7 @@ export default async function DashboardTestPage() {
   )
 
   return (
-    <main style={{ padding: 40 }}>
+    <main style={{ padding: 40, backgroundColor: "#ffffff", color: "#111827", minHeight: "100vh" }}>
       <h1>Kreiranje testa</h1>
 
 <a
